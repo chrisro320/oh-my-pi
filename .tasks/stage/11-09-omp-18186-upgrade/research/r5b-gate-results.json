@@ -1,0 +1,179 @@
+{
+  "description": "Latest observed complete-gate cells, selected from the named receipts; not a synthetic combined run.",
+  "version": "18.18.6",
+  "gates": [
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 5.33,
+      "log": "/var/tmp/omp-18186/r5b-gates/logs/verify-anthropic-request-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "b10aeece2560c2ba50f99daaa7e9995359d3943dd59521fcf8614553b1f1cb34",
+      "started": "2026-11-10T06:09:27.078+00:00",
+      "finished": "2026-11-10T06:09:32.406+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.17,
+      "log": "/var/tmp/omp-18186/r5b-thinking-controls/logs/verify-anthropic-thinking-drop-resume.log",
+      "flags": [],
+      "capabilities": [
+        "0094"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "1a4fec6fd797159158740e473c36190b96be33fe69d47528d5b8d619eb4675ae",
+      "started": "2026-11-10T06:14:02.031+00:00",
+      "finished": "2026-11-10T06:14:04.202+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-thinking-controls/receipt.json"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 6.58,
+      "log": "/var/tmp/omp-18186/r5b-gates/logs/verify-context-persist-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0095"
+      ],
+      "selected_by": [
+        "family 0095-omp-context-audit-request-purpose (guard of verify-context-persist-audit.ts)"
+      ],
+      "gate_sha256": "774a3177953d8fbad3c23f02f1ca4d01166186f33f76f46c5d2bf7dc7fdbc06e",
+      "started": "2026-11-10T06:09:32.686+00:00",
+      "finished": "2026-11-10T06:09:39.265+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json"
+    },
+    {
+      "gate": "verify-extensions-load-18180.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 3.27,
+      "log": "/var/tmp/omp-18186/r5b-gates/logs/verify-extensions-load-18180.log",
+      "flags": [
+        "companions"
+      ],
+      "capabilities": [
+        "0082"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "22c530c902424bccb072f24c25021813a85a5e2b5a361406d81c643a2adfd760",
+      "started": "2026-11-10T06:09:39.267+00:00",
+      "finished": "2026-11-10T06:09:42.539+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json"
+    },
+    {
+      "gate": "verify-usage-thread-providers.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.72,
+      "log": "/var/tmp/omp-18186/r5b-gates/logs/verify-usage-thread-providers.log",
+      "flags": [],
+      "capabilities": [
+        "0031"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "788b40649b4a9913dc0ff9faf4d825ed6e2d985bf75ccc5066080433c37bf9b9",
+      "started": "2026-11-10T06:09:42.540+00:00",
+      "finished": "2026-11-10T06:09:44.259+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json"
+    },
+    {
+      "gate": "verify-anthropic-threads-cache-shape.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 4.66,
+      "log": "/var/tmp/omp-18186/r5b-gates/logs/verify-anthropic-threads-cache-shape.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "b85a969b0b004e836f21de1aa49f006b8d924f685548a78879f20101906b1287",
+      "started": "2026-11-10T06:09:44.284+00:00",
+      "finished": "2026-11-10T06:09:48.946+00:00",
+      "source_receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json"
+    }
+  ],
+  "runtime_digest": {
+    "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+    "entries": 17356,
+    "before": "00e9ef9d812ef6806d220d4b0367e4ee201628facd1170d64ab7ccfc27820e51",
+    "after": "00e9ef9d812ef6806d220d4b0367e4ee201628facd1170d64ab7ccfc27820e51",
+    "unchanged": true
+  },
+  "stable_receipt": "/var/tmp/omp-18186/r5b-stable-gates/receipt.json",
+  "stable_gates": [
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.47,
+      "log": "/var/tmp/omp-18186/r5b-stable-gates/logs/verify-anthropic-thinking-drop-resume.log",
+      "flags": [],
+      "capabilities": [
+        "0094"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "1a4fec6fd797159158740e473c36190b96be33fe69d47528d5b8d619eb4675ae",
+      "started": "2026-11-10T06:14:10.419+00:00",
+      "finished": "2026-11-10T06:14:10.885+00:00"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 6.18,
+      "log": "/var/tmp/omp-18186/r5b-stable-gates/logs/verify-context-persist-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0095"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "774a3177953d8fbad3c23f02f1ca4d01166186f33f76f46c5d2bf7dc7fdbc06e",
+      "started": "2026-11-10T06:14:10.895+00:00",
+      "finished": "2026-11-10T06:14:17.071+00:00"
+    }
+  ],
+  "attempts": [
+    {
+      "receipt": "/var/tmp/omp-18186/r5b-gates/receipt.json",
+      "status": "FAIL",
+      "result": "5 PASS; initial thinking fixture incorrectly expected a native Mythos wire beta."
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5b-thinking-final/receipt.json",
+      "status": "FAIL",
+      "result": "All positive thinking cases and the first four mutations passed; beta mutation anchor matched both injected and ordinary clients."
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5b-thinking-controls/receipt.json",
+      "status": "PASS",
+      "result": "Final thinking gate: all positive cases and eight discriminating mutations."
+    }
+  ]
+}

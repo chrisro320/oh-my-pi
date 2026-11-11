@@ -1,0 +1,116 @@
+{
+  "compiler": "/home/chris/.local/lib/node_modules/typescript/bin/tsc",
+  "config_contract": "18.18.0 M8 shape; system Node typings, no Bun or markdown shim",
+  "normalization": "diagnostic multiset by relative source path, TS code and message; ignore shifted line/column",
+  "deltas": {
+    "chain13->family14": {
+      "pi-ai": {
+        "added": [],
+        "removed": []
+      },
+      "pi-agent-core": {
+        "added": [
+          {
+            "file": "@oh-my-pi/pi-agent-core/src/compaction/anthropic.ts",
+            "code": "TS2307",
+            "message": "Cannot find module './prompts/anthropic-compaction-instructions-live-chain.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-agent-core/src/compaction/compaction.ts",
+            "code": "TS2307",
+            "message": "Cannot find module './prompts/compaction-turn-prefix-from-prefix.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-agent-core/src/compaction/compaction.ts",
+            "code": "TS2307",
+            "message": "Cannot find module './prompts/compaction-update-summary-from-prefix.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-agent-core/src/telemetry.ts",
+            "code": "TS2353",
+            "message": "Object literal may only specify known properties, and 'requestPurpose' does not exist in type 'SimpleStreamOptions & { onAttempt?: ((message: AssistantMessage) => void) | undefined; }'.",
+            "count": 1
+          }
+        ],
+        "removed": []
+      },
+      "pi-coding-agent": {
+        "added": [],
+        "removed": []
+      },
+      "pi-tui": {
+        "added": [],
+        "removed": []
+      },
+      "pi-catalog": {
+        "added": [],
+        "removed": []
+      },
+      "snapcompact": {
+        "added": [],
+        "removed": []
+      }
+    }
+  },
+  "counts": {
+    "chain13": {
+      "pi-ai": {
+        "exit": 2,
+        "diagnostics": 253
+      },
+      "pi-agent-core": {
+        "exit": 2,
+        "diagnostics": 27
+      },
+      "pi-coding-agent": {
+        "exit": 2,
+        "diagnostics": 1856
+      },
+      "pi-tui": {
+        "exit": 2,
+        "diagnostics": 213
+      },
+      "pi-catalog": {
+        "exit": 2,
+        "diagnostics": 73
+      },
+      "snapcompact": {
+        "exit": 2,
+        "diagnostics": 4
+      }
+    },
+    "family14": {
+      "pi-ai": {
+        "exit": 2,
+        "diagnostics": 253
+      },
+      "pi-agent-core": {
+        "exit": 2,
+        "diagnostics": 31
+      },
+      "pi-coding-agent": {
+        "exit": 2,
+        "diagnostics": 1856
+      },
+      "pi-tui": {
+        "exit": 2,
+        "diagnostics": 213
+      },
+      "pi-catalog": {
+        "exit": 2,
+        "diagnostics": 73
+      },
+      "snapcompact": {
+        "exit": 2,
+        "diagnostics": 4
+      }
+    }
+  },
+  "interpretation": {
+    "new_markdown_import_diagnostics": "The three added family prompt files have no ambient Markdown declaration in this unshimmed published-source compiler harness. They are present in the source and used successfully by the affected runtime gates.",
+    "requestPurpose_owner": "0094-omp-anthropic-thinking-drop-resume-v18.18.0.patch adds the SimpleStreamOptions.requestPurpose type at src/types.ts hunk line 374; family-compaction already calls it in historical telemetry.ts line 4460. Preserve the family call; do not backport the later type here."
+  }
+}

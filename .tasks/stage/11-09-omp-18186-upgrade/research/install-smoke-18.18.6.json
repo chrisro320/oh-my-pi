@@ -1,0 +1,418 @@
+{
+  "version": "18.18.6",
+  "status": "PASS",
+  "started": "2026-11-10T09:08:42.285558+00:00",
+  "runtime": "/home/chris/.bun/install/omp-releases/18.18.6-2f8258e8a984-677bb127-9391d3a2/runtime",
+  "ledger": "/home/chris/.bun/install/omp-releases/18.18.6-2f8258e8a984-677bb127-9391d3a2/ledger",
+  "bun": "/home/chris/.bun/bin/bun",
+  "checks": {
+    "version": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "--version"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:49.009690+00:00",
+      "finished": "2026-11-10T09:08:49.039147+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "omp/18.18.6\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 12,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "6aab31fff713f1363152dec8a30018d353a761dc3677bc9141517ac157637670",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0 and stdout == 'omp/18.18.6'",
+        "matched": true
+      }
+    },
+    "cli-read": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "--no-session",
+        "--no-skills",
+        "--no-lsp",
+        "--trusted-extension",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/cli-smoke.ts",
+        "--model",
+        "release-smoke/verification",
+        "-p",
+        "Read the fixture file and report."
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:50.192358+00:00",
+      "finished": "2026-11-10T09:08:51.304451+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "OMP_18.18.6_READ_c6489f221e164b519a57318c345c4ba3\n",
+      "stderr": "OMP_SMOKE_IMPORT file:///tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-ai/src/providers/mock.ts\nWorking...\nOMP_REAL_READ_OBSERVED\n",
+      "output_bytes": {
+        "stdout": 50,
+        "stderr": 147
+      },
+      "output_sha256": {
+        "stdout": "1f3ca9fe547f9e34823e0462a0bb3a394aaf01f98e336402911fa50146b47fa8",
+        "stderr": "e74a7a473a28e99716d7807ccc043cc58f8bd275ee1ad15c852a19991aebd14a"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0, fixture nonce in stdout, OMP_REAL_READ_OBSERVED and selected mock import in stderr",
+        "matched": true
+      }
+    },
+    "native-ipc": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/ipc-smoke.ts"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:52.449883+00:00",
+      "finished": "2026-11-10T09:08:52.545465+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "OMP_NATIVE_ROUNDTRIP_OBSERVED\nOMP_18.18.6_NATIVE_BROKER_OBSERVED\n",
+      "stderr": "OMP_SMOKE_IMPORT file:///tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-natives/native/index.js\nOMP_SMOKE_IMPORT file:///tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/launch/client.ts\n",
+      "output_bytes": {
+        "stdout": 65,
+        "stderr": 234
+      },
+      "output_sha256": {
+        "stdout": "49e71e4d1ae1ee902e15ecba20b67bce474c4af4e585157f001f531499d11526",
+        "stderr": "37016d9dab6632018911e337dd67ba2654372ae433804764f8a9ed9889386582"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0, OMP_NATIVE_ROUNDTRIP_OBSERVED and OMP_18.18.6_NATIVE_BROKER_OBSERVED, both selected imports",
+        "matched": true
+      }
+    },
+    "gallery": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "gallery",
+        "--surface",
+        "segment",
+        "--plain",
+        "--width",
+        "100"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:53.711147+00:00",
+      "finished": "2026-11-10T09:08:54.037779+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "\n\u2500\u2500 segment \u00b7 pi \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 idle\n  \u03c0\n\n  \u00b7 active\n  \u2839 1m\n\n  \u00b7 focused subagent\n  \ud83d\udc7b Scout\n\n\u2500\u2500 segment \u00b7 status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 multiple extension statuses\n  Indexer ready \u00b7 Tests passing\n\n\u2500\u2500 segment \u00b7 model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  \u2b22 Sonnet 4.5 \u00b7 \u25d2 high\n\n  \u00b7 fast + advisor active\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u26a1 \u00b7 \u25d2 high\n\n  \u00b7 advisor warning\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor error\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor paused\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor done (yielded)\n  \u2b22 Sonnet 4.5 \ud83d\ude48 \u00b7 \u25d2 high\n\n\u2500\u2500 segment \u00b7 mode \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 active\n  \ud83d\uddfa Plan\n\n  \u00b7 warning / paused\n  \ud83d\uddfa Plan \u23f8\n\n  \u00b7 prewalk active\n  \ud83c\udfc3 Prewalk\n\n  \u00b7 vibe active\n  \ud83d\udc65 Vibe\n\n  \u00b7 loop active\n  \u21bb Loop running 4/10\n\n  \u00b7 loop paused\n  \u23f8 Loop paused 4/10\n\n  \u00b7 goal active\n  \ud83c\udfaf Goal 12K/50K\n\n  \u00b7 goal paused\n  \u23f8 Goal 12K/50K\n\n  \u00b7 goal complete\n  \u2714 Goal 12K/50K\n\n  \u00b7 goal budget warning\n  \u26a0 Goal 12K/50K\n\n  \u00b7 goal dropped\n  \u23f9 Goal 12K/50K\n\n\u2500\u2500 segment \u00b7 path \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 workspace path\n  \ud83d\udcc1 /workspace/oh-my-pi \u21b3 oh-my-pi\n\n  \u00b7 linked worktree\n  \ud83c\udf33 oh-my-pi\n\n\u2500\u2500 segment \u00b7 git \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 clean\n  \u2442 main\n\n  \u00b7 dirty\n  \u2442 gallery\u2026eference *3 +2 ?1\n\n\u2500\u2500 segment \u00b7 pr \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2934 #1842\n\n\u2500\u2500 segment \u00b7 subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udc65 3\n\n\u2500\u2500 segment \u00b7 token_in \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2935 12K\n\n\u2500\u2500 segment \u00b7 token_out \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2934 3.6K\n\n\u2500\u2500 segment \u00b7 token_total \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83e\ude99 18K\n\n\u2500\u2500 segment \u00b7 token_rate \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u26a1 87.3 tok/s\n\n\u2500\u2500 segment \u00b7 cost \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 metered + premium + advisor\n  $0.42 \u2605 2 + \ud83d\udc41 0.08\n\n  \u00b7 subscription\n  (sub)\n\n  \u00b7 subscription + subagents\n  S0.38 (+1.27)\n\n  \u00b7 premium requests\n  \u2605 2\n\n\u2500\u2500 segment \u00b7 context_pct \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  \u25eb 22.0%/200K \u27f2\n\n  \u00b7 warning\n  \u25eb 72.0%/200K \u27f2\n\n  \u00b7 error\n  \u25eb 96.0%/200K \u27f2\n\n  \u00b7 active compaction\n  \u25eb 72.0%/200K \u27f2\n\n  \u00b7 armed compaction\n  \u25eb 72.0%/200K \u27f2\n\n\u2500\u2500 segment \u00b7 context_total \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u25eb 200K\n\n\u2500\u2500 segment \u00b7 time_spent \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u23f1 6m12s\n\n\u2500\u2500 segment \u00b7 time \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 24-hour with seconds\n  \u23f1 14:07:09\n\n  \u00b7 12-hour\n  \u23f1 2:07pm\n\n\u2500\u2500 segment \u00b7 session \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83c\udd94 gallery-\n\n\u2500\u2500 segment \u00b7 hostname \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udda5 gallery-host\n\n\u2500\u2500 segment \u00b7 cache_read \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 48K\n\n\u2500\u2500 segment \u00b7 cache_write \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 1.2K\n\n\u2500\u2500 segment \u00b7 cache_hit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 77.92%\n\n\u2500\u2500 segment \u00b7 cache_turn \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 77.92%\n\n\u2500\u2500 segment \u00b7 cache \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 cached\n  \u25cf\n\n  \u00b7 likely cached (inferred)\n  \u25cf\n\n  \u00b7 not cached \u2014 expired\n  \u2298\n\n  \u00b7 not cached \u2014 model changed\n  \u2298\n\n  \u00b7 hidden (nothing to report)\n  (hidden for this sample)\n\n\u2500\u2500 segment \u00b7 session_name \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  gallery\n\n\u2500\u2500 segment \u00b7 usage \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 all windows\n  \u23f1 Pro \u00b7 5h 32% (1.1h) \u00b7 1d 44% (5.1h) \u00b7 7d 68% (2.1d) \u00b7 mo 77% (9d)\n\n  \u00b7 normal\n  \u23f1 Pro \u00b7 5h 24% (1.2h)\n\n  \u00b7 warning\n  \u23f1 Pro \u00b7 5h 65% (1.2h)\n\n  \u00b7 error\n  \u23f1 Pro \u00b7 5h 92% (1.2h)\n\n\u2500\u2500 segment \u00b7 collab \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 host active\n  \u21c4 collab:3\n\n  \u00b7 guest active\n  \u21c4 collab guest:3\n\n\u2500\u2500 segment \u00b7 stream \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  (hidden for this sample)\n\n\u2500\u2500 segment \u00b7 vim \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  NORMAL\n\n  \u00b7 insert\n  INSERT\n\n  \u00b7 visual with count\n  V-LINE 4L 2d\n\n  \u00b7 icon mode\n  \u25a0\n\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 10215,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "a541bfa87ee2a4de9bc42088571f1ef5c8f5a4580bc383bfb9862e1e27473670",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "observations": {
+        "cache_turn_present": true,
+        "cache_turn_contains_trn": false,
+        "cache_turn_samples": [
+          "",
+          "  \u00b7 canonical",
+          "  \ud83d\udcbe 77.92%",
+          ""
+        ],
+        "git_samples": [
+          "\u2442 main",
+          "\u2442 gallery\u2026eference *3 +2 ?1"
+        ],
+        "physical_render_observed": false
+      },
+      "assertion": {
+        "expect": "exit 0, cache_turn present without 'trn ', nonempty git samples",
+        "matched": true
+      }
+    },
+    "bound-controller": {
+      "command": [
+        "bash",
+        "/tmp/omp-18186-smoke-ha6r_hat/ledger/apply.sh",
+        "--check"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:55.187461+00:00",
+      "finished": "2026-11-10T09:08:56.614139+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "APPLIED  .18.18.6-families/family-status-accounting-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-hindsight-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-usage-pipeline-v18.18.6.patch\nAPPLIED  .18.18.6-families/0010-omp-extension-idle-ephemeral-turn-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-image-budget-snapcompact-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-persistent-prefix-resume-v18.18.6.patch\nAPPLIED  .18.18.6-families/0046-omp-supersede-warm-prefix-guard-v18.18.6.patch\nAPPLIED  .18.18.6-families/0050-omp-session-history-preview-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-devin-wire-v18.18.6.patch\nAPPLIED  .18.18.6-families/0069-omp-codex-effort-history-resume-v18.18.6.patch\nAPPLIED  .18.18.6-families/0074-omp-anthropic-context-cache-boundaries-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-image-display-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-input-translation-v18.18.6.patch\nAPPLIED  .18.18.6-families/family-compaction-v18.18.6.patch\nAPPLIED  .18.18.6-families/0090-omp-oauth-durable-refresh-v18.18.6.patch\nAPPLIED  .18.18.6-families/0092-omp-cache-warming-idle-budget-v18.18.6.patch\nAPPLIED  .18.18.6-families/0094-omp-anthropic-thinking-drop-resume-v18.18.6.patch\nAPPLIED  .18.18.6-families/0095-omp-context-audit-request-purpose-v18.18.6.patch\nAPPLIED  .18.18.6-families/0098-omp-tls-verify-transient-retry-v18.18.6.patch\nAPPLIED  .18.18.6-families/0099-omp-retry-slow-schedule-v18.18.6.patch\nAPPLIED  .18.18.6-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.18.6.patch\nAPPLIED  .18.18.6-families/0102-omp-computer-control-confirm-deadline-v18.18.6.patch\nAPPLIED  .18.18.6-families/0103-omp-advisor-tools-done-visible-v18.18.6.patch\nAPPLIED  bin/omp -> src/cli.ts\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 1734,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "248e057bfb5c7679fb72b61d62bc11dc605d1074919ce8a911eac75f903b3e6c",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0, nonempty stdout with every line starting 'APPLIED ', final source link APPLIED",
+        "matched": true
+      }
+    },
+    "native-dialog": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/ledger/verify-native-dialog-lifecycle.ts"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:57.755722+00:00",
+      "finished": "2026-11-10T09:08:57.946025+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS MCP discovery continuation ownership: cancelled=true\nPASS MCP discovery continuation ownership: cancelled=false\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 761,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "63dcde5076ee07983a3b8d6f64e4afce501e8a9eb07838343d5ba9172f8a0f56",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0, nonempty stdout with every line starting 'PASS '",
+        "matched": true
+      }
+    }
+  },
+  "offline_controls": {
+    "fetch-unguarded": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts",
+        "fetch"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:47.810008+00:00",
+      "finished": "2026-11-10T09:08:47.821960+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "OMP_UNGUARDED_FETCH\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 20,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "6f01ebedd5ecbf508e1848ffd679d460b7cfccf48813f17abc9a09094f347527",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0 and stdout == 'OMP_UNGUARDED_FETCH'",
+        "matched": true
+      }
+    },
+    "fetch-blocked": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts",
+        "fetch"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:47.822025+00:00",
+      "finished": "2026-11-10T09:08:47.834602+00:00",
+      "exit": 1,
+      "timeout": false,
+      "stdout": "",
+      "stderr": "1 | /** Process-local fetch/WebSocket guard, not OS-level network isolation.\n2 |  * Other transports (node:http, native sockets, un-preloaded child processes)\n3 |  * are not covered. The broker smoke intentionally uses real local native IPC.\n4 |  */\n5 | Object.defineProperty(globalThis, \"fetch\", {\n6 | \tvalue: (): never => { throw new Error(\"OMP_OFFLINE_BLOCKED_FETCH\"); },\n                                     ^\nerror: OMP_OFFLINE_BLOCKED_FETCH\n      at value (/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts:6:34)\n      at /tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts:7:25\n\nBun v1.4.4 (Linux x64)\n",
+      "output_bytes": {
+        "stdout": 0,
+        "stderr": 659
+      },
+      "output_sha256": {
+        "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr": "4d8db344dbe299b727785f3662bab84843d8ee04bc9af4c2f48d6cb7a0f336af"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "nonzero exit, stderr contains OMP_OFFLINE_BLOCKED_FETCH, no OMP_UNGUARDED_FETCH",
+        "matched": true
+      }
+    },
+    "websocket-unguarded": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts",
+        "websocket"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:47.834664+00:00",
+      "finished": "2026-11-10T09:08:47.844181+00:00",
+      "exit": 0,
+      "timeout": false,
+      "stdout": "OMP_UNGUARDED_WEBSOCKET\n",
+      "stderr": "",
+      "output_bytes": {
+        "stdout": 24,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "a36acb4efd254c0ec684ad3d2b2955801048695b877229a20d1a103bd451ebd7",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "exit 0 and stdout == 'OMP_UNGUARDED_WEBSOCKET'",
+        "matched": true
+      }
+    },
+    "websocket-blocked": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts",
+        "/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts",
+        "websocket"
+      ],
+      "network": "bwrap --unshare-net (loopback only)",
+      "started": "2026-11-10T09:08:47.844239+00:00",
+      "finished": "2026-11-10T09:08:47.857163+00:00",
+      "exit": 1,
+      "timeout": false,
+      "stdout": "",
+      "stderr": " 6 | \tvalue: (): never => { throw new Error(\"OMP_OFFLINE_BLOCKED_FETCH\"); },\n 7 | \tconfigurable: false,\n 8 | \twritable: false,\n 9 | });\n10 | class OfflineWebSocket {\n11 | \tconstructor() { throw new Error(\"OMP_OFFLINE_BLOCKED_WEBSOCKET\"); }\n                                ^\nerror: OMP_OFFLINE_BLOCKED_WEBSOCKET\n      at new OfflineWebSocket (/tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-preload.ts:11:28)\n      at /tmp/omp-18186-smoke-ha6r_hat/runtime/.omp-sandbox-smoke/offline-control.ts:10:17\n\nBun v1.4.4 (Linux x64)\n",
+      "output_bytes": {
+        "stdout": 0,
+        "stderr": 540
+      },
+      "output_sha256": {
+        "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr": "0fb3892f236cc957855337bfb1ab09dce3f3778da467e5aa5b6191357a57ebe5"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "assertion": {
+        "expect": "nonzero exit, stderr contains OMP_OFFLINE_BLOCKED_WEBSOCKET, no OMP_UNGUARDED_WEBSOCKET",
+        "matched": true
+      }
+    }
+  },
+  "boundary": "Repository/sandbox only; synthetic model, real read/native IPC, no provider proof; process-local fetch/WebSocket guard inside a loopback-only OS network namespace. Bound-controller is identification only; no publication/activation/physical UI proof.",
+  "release": "/home/chris/.bun/install/omp-releases/18.18.6-2f8258e8a984-677bb127-9391d3a2",
+  "receipt_digests_before": {
+    "runtime": true,
+    "ledger": true
+  },
+  "source_freeze": {
+    "runtime": {
+      "files": 17358,
+      "content_manifest_sha256": "92ab9abe6459eaea724cf6dea9123753ef242b8c77f72360de0625864f126ff6"
+    },
+    "ledger": {
+      "files": 627,
+      "content_manifest_sha256": "5b14d4213cfa93eafc36b87399e1b83494e7278e05a0a6888d93e3607f19682a"
+    }
+  },
+  "probe_sha256": {
+    "cli-smoke.ts": "b4007db4b67bcc338c11fad97ddc4d41135024e368590cf29cf8a47c10c6499a",
+    "ipc-smoke.ts": "99e71bfbcd413567658f28ecd936af5c86fb712ea802bbc8ef656090697e4f63",
+    "offline-control.ts": "ede1b72b0f32f7efad98431c8a9d94a8e945025a578d792486f6bbaefcccc721",
+    "offline-preload.ts": "04562757e55724acb165abe9fcfe34459d326e02b666f48ed6fd0cdc0de1e119"
+  },
+  "environment": {
+    "keys": [
+      "HOME",
+      "LANG",
+      "NO_COLOR",
+      "OMP_PATCH_OFFLINE_VERIFY",
+      "OMP_PATCH_PLAN",
+      "OMP_PATCH_REPO_ROOT",
+      "OMP_PATCH_VERIFY_AGENT_ROOT",
+      "OMP_PATCH_VERIFY_AI_ROOT",
+      "OMP_PATCH_VERIFY_CATALOG_ROOT",
+      "OMP_PATCH_VERIFY_CORE_ROOT",
+      "OMP_PATCH_VERIFY_NM",
+      "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+      "OMP_PATCH_VERIFY_TUI_ROOT",
+      "OMP_PATCH_VERSION",
+      "OMP_PAYLOAD_ARCHIVE",
+      "OMP_RESUME_EVENT_LOG",
+      "OMP_SMOKE_FIXTURE",
+      "OMP_SMOKE_READ_MARKER",
+      "OMP_SMOKE_RUNTIME",
+      "PATH",
+      "PI_CODING_AGENT_DIR",
+      "TERM",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_DATA_HOME",
+      "XDG_RUNTIME_DIR",
+      "XDG_STATE_HOME"
+    ],
+    "private_home": "/tmp/omp-18186-smoke-ha6r_hat/private/home",
+    "runtime": "/tmp/omp-18186-smoke-ha6r_hat/runtime",
+    "ledger": "/tmp/omp-18186-smoke-ha6r_hat/ledger",
+    "selected_roots": {
+      "OMP_PATCH_VERIFY_NM": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi",
+      "OMP_PATCH_VERIFY_AGENT_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-coding-agent",
+      "OMP_PATCH_VERIFY_CORE_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-agent-core",
+      "OMP_PATCH_VERIFY_AI_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-ai",
+      "OMP_PATCH_VERIFY_TUI_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-tui",
+      "OMP_PATCH_VERIFY_CATALOG_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/pi-catalog",
+      "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT": "/tmp/omp-18186-smoke-ha6r_hat/runtime/node_modules/@oh-my-pi/snapcompact"
+    }
+  },
+  "copy_freeze": {
+    "runtime": {
+      "files": 17362,
+      "content_manifest_sha256": "2e849cb9080db482aedd911a790aa1ef3ada23955908e7c4e24698a491926af2"
+    },
+    "ledger": {
+      "files": 627,
+      "content_manifest_sha256": "f9c3dd1d4f1317b20ad7804cfdc622cbe5d760286d0a2f39f034c355fb821b6a"
+    }
+  },
+  "freeze_unchanged": {
+    "source_runtime": true,
+    "source_ledger": true,
+    "copied_runtime": true,
+    "copied_ledger": true,
+    "receipt_runtime": true,
+    "receipt_ledger": true
+  },
+  "finished": "2026-11-10T09:09:01.753361+00:00",
+  "private_tree_removed": true
+}

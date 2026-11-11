@@ -49,7 +49,7 @@ RESUME: （待驗收）
 - taskex 完整實測 `python3 research/trial/run_all.py`（--repeat 5，514.5 s）：C1–C10 全有判定，無 blocked；細節 [research/results.md](research/results.md)
 - main 重跑不成立／有條件項 `--only C3,C4,C6,C7,C8,C9,C10 --repeat 2`（175.5 s）：7 項判定與第一次相同；[research/trial/results-recheck.json](research/trial/results-recheck.json) sha256 4f4ae40d09246d1d…
 - main 第二次完整重跑（--repeat 5，508.5 s）：10 項判定相同；[research/trial/results.json](research/trial/results.json) sha256 d9f8702464e6fec0…；腳本 run_all.py sha256 2daedcc7c3414aa3…
-- 三次跑後：使用者 ovnfs 服務 pid 2760573、checkouts 0、snapshots 1、bases 1、layers 1 不變；`~/.o2/ovnfs.yml` 不存在；`/var/tmp/ovnfs-trial` 已刪；專案 `git status --porcelain` 只有 `?? .tasks/stage/11-08-ovnfs-concurrency-trial/`
+- 三次跑後：使用者 ovnfs 服務 pid 2760573、checkouts 0、snapshots 1、bases 1、layers 1 不變；`~/.o2/ovnfs.yml` 不存在；`/var/tmp/ovnfs-trial` 已刪；專案 `git status --porcelain` 只有 `?? .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial/`
 - C10 成因核對 omp 原始碼：預設 `task.isolation.merge=patch`（task/settings.ts:191-196），patch 合併 check 後 apply、無鎖（task/isolation-runner.ts:741-786）
 - 結論頁 [research/report.md](research/report.md)
 - 變更報告：`report` 回 nothing to report（只有任務資料夾變動）

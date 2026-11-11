@@ -1,0 +1,31 @@
+{
+  "accepted": 14,
+  "pending": null,
+  "conflicts": [
+    {
+      "path": "pi-agent-core/src/compaction/compaction.ts",
+      "blocks": 1
+    },
+    {
+      "path": "pi-coding-agent/src/session/agent-session.ts",
+      "blocks": 2
+    },
+    {
+      "path": "pi-coding-agent/src/session/session-maintenance.ts",
+      "blocks": 1
+    }
+  ],
+  "historical": {
+    "paths": 29,
+    "hunks": 185,
+    "added_lines": 2495,
+    "removed_lines": 353
+  },
+  "candidate": {
+    "paths": 29,
+    "hunks": 185,
+    "added_lines": 2495,
+    "removed_lines": 353
+  },
+  "retired_capabilities_removed": []
+}

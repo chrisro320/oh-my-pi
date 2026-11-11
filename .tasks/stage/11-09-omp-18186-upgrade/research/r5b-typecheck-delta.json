@@ -1,0 +1,139 @@
+{
+  "before_receipt": "/var/tmp/omp-18186/r4-typecheck/receipt.json",
+  "after_receipt": "/var/tmp/omp-18186/r5b-typecheck/receipt.json",
+  "before_label": "family14",
+  "after_label": "through18",
+  "compiler": "/home/chris/.local/lib/node_modules/typescript/bin/tsc",
+  "config_contract": "18.18.0 M8 shape; system Node typings, no Bun or markdown shim",
+  "differential": {
+    "pi-ai": {
+      "before": 253,
+      "after": 252,
+      "added": [],
+      "removed": [
+        {
+          "file": "@oh-my-pi/pi-ai/src/stream.ts",
+          "code": "TS2339",
+          "message": "Property 'requestPurpose' does not exist on type 'SimpleStreamOptions'.",
+          "count": 1
+        }
+      ],
+      "raw_exits": [
+        2,
+        2
+      ]
+    },
+    "pi-agent-core": {
+      "before": 31,
+      "after": 30,
+      "added": [],
+      "removed": [
+        {
+          "file": "@oh-my-pi/pi-agent-core/src/telemetry.ts",
+          "code": "TS2353",
+          "message": "Object literal may only specify known properties, and 'requestPurpose' does not exist in type 'SimpleStreamOptions & { onAttempt?: ((message: AssistantMessage) => void) | undefined; }'.",
+          "count": 1
+        }
+      ],
+      "raw_exits": [
+        2,
+        2
+      ]
+    },
+    "pi-coding-agent": {
+      "before": 1856,
+      "after": 1843,
+      "added": [],
+      "removed": [
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/controllers/btw-controller.ts",
+          "code": "TS2322",
+          "message": "Type 'AgentSession | AgentViewSession' is not assignable to type 'AgentViewSession'.",
+          "count": 1
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/controllers/session-focus-controller.ts",
+          "code": "TS2345",
+          "message": "Argument of type 'AgentSession' is not assignable to parameter of type 'AgentViewSession'.",
+          "count": 2
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+          "code": "TS2322",
+          "message": "Type 'AgentSession | AgentViewSession' is not assignable to type 'AgentViewSession'.",
+          "count": 1
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+          "code": "TS2322",
+          "message": "Type 'AgentSession' is not assignable to type 'AgentViewSession'.",
+          "count": 2
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+          "code": "TS2345",
+          "message": "Argument of type 'AgentSession | AgentViewSession' is not assignable to parameter of type 'AgentViewSession'.",
+          "count": 2
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/modes/status-line-host.ts",
+          "code": "TS2345",
+          "message": "Argument of type 'string[] | undefined' is not assignable to parameter of type 'string | undefined'.",
+          "count": 1
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/session/agent-session.ts",
+          "code": "TS2416",
+          "message": "Property 'fetchUsageReports' in type 'AgentSession' is not assignable to the same property in base type 'AgentViewSession'.",
+          "count": 1
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/slash-commands/builtin-modes.ts",
+          "code": "TS2345",
+          "message": "Argument of type 'AgentSession' is not assignable to parameter of type 'AgentViewSession'.",
+          "count": 2
+        },
+        {
+          "file": "@oh-my-pi/pi-coding-agent/src/thread/session-publisher.ts",
+          "code": "TS2345",
+          "message": "Argument of type 'readonly string[] | undefined' is not assignable to parameter of type 'string | undefined'.",
+          "count": 1
+        }
+      ],
+      "raw_exits": [
+        2,
+        2
+      ]
+    },
+    "pi-tui": {
+      "before": 213,
+      "after": 213,
+      "added": [],
+      "removed": [],
+      "raw_exits": [
+        2,
+        2
+      ]
+    },
+    "pi-catalog": {
+      "before": 73,
+      "after": 73,
+      "added": [],
+      "removed": [],
+      "raw_exits": [
+        2,
+        2
+      ]
+    },
+    "snapcompact": {
+      "before": 4,
+      "after": 4,
+      "added": [],
+      "removed": [],
+      "raw_exits": [
+        2,
+        2
+      ]
+    }
+  }
+}

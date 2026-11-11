@@ -1,0 +1,212 @@
+{
+  "kind": "Lossless selection of latest observed gate results, not a new combined run",
+  "check_after_15": {
+    "exit": 0,
+    "accepted": 15,
+    "replay_equals_work": true,
+    "digest": "ef615fa7156a847259583b7d89d1f54207122e55f2bdddeb40bbd2737a73bbfe"
+  },
+  "check_after_16": {
+    "exit": 0,
+    "accepted": 16,
+    "replay_equals_work": true,
+    "digest": "b7f98168f3ded023aa6bf7d4edc8648dd9b21677ca236b5f9f0ad7c5516f9363"
+  },
+  "runtime_digest": "63ba50791583ed2f88b7ee8945f737f6f4f1f3b5fc8a621dd65bde09eba3cf59",
+  "entries": 17356,
+  "gates": [
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "status": "FAIL",
+      "exit": 1,
+      "seconds": 1.27,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-anthropic-request-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "b10aeece2560c2ba50f99daaa7e9995359d3943dd59521fcf8614553b1f1cb34",
+      "started": "2026-11-10T05:47:39.427+00:00",
+      "finished": "2026-11-10T05:47:40.696+00:00",
+      "work_dir": "/var/tmp/omp-18186/r5a-final-gates/work/verify-anthropic-request-audit",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json",
+      "classification": "proven later family",
+      "later_family": "0094-omp-anthropic-thinking-drop-resume",
+      "proof": "Frozen patch lines 313-320 and 349-359 install logical/wire observers around compression; baseline full-batch gate PASS at lines 471-485.",
+      "baseline_receipt": ".tasks/archive/2026-11/11-07-omp-version-agnostic-gates/research/final-full-batch-18.18.0.json"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 12.94,
+      "log": "/var/tmp/omp-18186/r5a-oauth-extension-final/logs/verify-oauth-durable-refresh.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "d205170485b04e2bd5904d5f55d3dc826dcc0a125fb0fe7c58393571735ef6b8",
+      "started": "2026-11-10T05:50:38.977+00:00",
+      "finished": "2026-11-10T05:50:51.915+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-oauth-extension-final/receipt.json"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 29.84,
+      "log": "/var/tmp/omp-18186/r5a-oauth-extension-final/logs/verify-oauth-unlock-fence-faults.log",
+      "flags": [
+        "slow",
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "d10efbb9bf45e06c8c50e78ec9f4ad796cb1e88f80192980c6835b9778f6adeb",
+      "started": "2026-11-10T05:50:09.026+00:00",
+      "finished": "2026-11-10T05:50:38.865+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-oauth-extension-final/receipt.json"
+    },
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 5.55,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-auth-unlock-extension.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "family 0090-omp-oauth-durable-refresh (guard of verify-auth-unlock-extension.ts)"
+      ],
+      "gate_sha256": "40e95615c3ab8d0b35272211520101cbccb17326ad25b7ed6d75896d5a228045",
+      "started": "2026-11-10T05:47:51.748+00:00",
+      "finished": "2026-11-10T05:47:57.296+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json"
+    },
+    {
+      "gate": "verify-account-eligibility-retention.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.26,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-account-eligibility-retention.log",
+      "flags": [],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "family 0090-omp-oauth-durable-refresh (guard of verify-account-eligibility-retention.ts)"
+      ],
+      "gate_sha256": "29ba4159ae8066c5a002ba700d1e4cb7f5a5621b61d48c2036e75d1b6eb386bd",
+      "started": "2026-11-10T05:47:57.417+00:00",
+      "finished": "2026-11-10T05:47:57.682+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json"
+    },
+    {
+      "gate": "verify-idle-warming-owners.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 69.09,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-idle-warming-owners.log",
+      "flags": [
+        "slow"
+      ],
+      "capabilities": [
+        "0092"
+      ],
+      "selected_by": [
+        "family 0092-omp-cache-warming-idle-budget (guard of verify-idle-warming-owners.ts)"
+      ],
+      "gate_sha256": "8127531fd39ada1da6e1affb661480511e49d1c33587d8fbcc6463de72ed7652",
+      "started": "2026-11-10T05:46:30.304+00:00",
+      "finished": "2026-11-10T05:47:39.394+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json"
+    },
+    {
+      "gate": "verify-extensions-load-18180.ts",
+      "status": "FAIL",
+      "exit": 1,
+      "seconds": 2.47,
+      "log": "/var/tmp/omp-18186/r5a-oauth-extension-final/logs/verify-extensions-load-18180.log",
+      "flags": [
+        "companions"
+      ],
+      "capabilities": [
+        "0082"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "22c530c902424bccb072f24c25021813a85a5e2b5a361406d81c643a2adfd760",
+      "started": "2026-11-10T05:50:52.050+00:00",
+      "finished": "2026-11-10T05:50:54.520+00:00",
+      "work_dir": "/var/tmp/omp-18186/r5a-oauth-extension-final/work/verify-extensions-load-18180",
+      "receipt": "/var/tmp/omp-18186/r5a-oauth-extension-final/receipt.json",
+      "classification": "proven later family",
+      "later_family": "0095-omp-context-audit-request-purpose",
+      "proof": "Frozen patch lines 49-63 and 78-85 author ContextEvent.purpose and event forwarding; baseline full-batch gate PASS at lines 911-927.",
+      "baseline_receipt": ".tasks/archive/2026-11/11-07-omp-version-agnostic-gates/research/final-full-batch-18.18.0.json"
+    },
+    {
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 5.56,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-oauth-worker-single-owner.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "family 0090-omp-oauth-durable-refresh (guard of verify-oauth-worker-single-owner.ts)"
+      ],
+      "gate_sha256": "7c3a621db970ba4a6ff67f03365ea9b5ce3976ec2907bc3586250ec4a0ac59cc",
+      "started": "2026-11-10T05:47:57.684+00:00",
+      "finished": "2026-11-10T05:48:03.244+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json"
+    },
+    {
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 5.14,
+      "log": "/var/tmp/omp-18186/r5a-final-gates/logs/verify-anthropic-threads-warm-compaction-isolation.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "79daebce7f78e00ce3d161fd65036499902d45eaf396994e8fffcce74d032677",
+      "started": "2026-11-10T05:48:03.379+00:00",
+      "finished": "2026-11-10T05:48:08.514+00:00",
+      "receipt": "/var/tmp/omp-18186/r5a-final-gates/receipt.json"
+    }
+  ],
+  "worker_receipt": "/var/tmp/omp-18186/r5a-worker-idle/receipt.json",
+  "stable_receipt": "/var/tmp/omp-18186/r5a-stable-final/receipt.json",
+  "initial_nonacceptance_receipts": [
+    "/var/tmp/omp-18186/r5a-family-gates/receipt.json",
+    "/var/tmp/omp-18186/r5a-stable-gates/receipt.json"
+  ]
+}

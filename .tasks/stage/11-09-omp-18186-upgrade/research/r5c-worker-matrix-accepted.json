@@ -1,0 +1,226 @@
+{
+  "runtime": "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+  "method": "Lossless accepted-cell selection: unchanged TLS/revival cells from initial matrix plus final retry cells; raw failed initial retry row remains in its source receipt",
+  "status": "PASS",
+  "cells": 6,
+  "runtime_packages": [
+    {
+      "package": "pi-ai",
+      "sha256": "4c5e337e94bbdb4c3382c26daea3a50799002451d11a5bceae276a64b33dd091",
+      "equals_final_snapshot_and_runtime": true
+    },
+    {
+      "package": "pi-agent-core",
+      "sha256": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+      "equals_final_snapshot_and_runtime": true
+    },
+    {
+      "package": "pi-coding-agent",
+      "sha256": "18849291638eecbb0f5684e1822e1a7d14486d2ca1a0f4f9debbde96c3174411",
+      "equals_final_snapshot_and_runtime": true
+    },
+    {
+      "package": "pi-tui",
+      "sha256": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+      "equals_final_snapshot_and_runtime": true
+    },
+    {
+      "package": "pi-catalog",
+      "sha256": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+      "equals_final_snapshot_and_runtime": true
+    },
+    {
+      "package": "snapcompact",
+      "sha256": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+      "equals_final_snapshot_and_runtime": true
+    }
+  ],
+  "rows": [
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-matrix.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-tls-verify-transient-retry.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 600,
+      "seconds": 8.569,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 117,
+        "sha256": "d4895b66adae78e998170edcdde0fccfe16bb25e684bd068f0d11a05cee623c3",
+        "tail": "verify-tls-verify-transient-retry: transient TLS verify failure retries; deterministic failures stay terminal (0098)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "mode": "main",
+      "status": "PASS",
+      "gate_sha256": "3243a7a0f69dc3402270fb83d6e9c721d1000ee15e44084aab3943348e023af6"
+    },
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-matrix.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-tls-verify-transient-retry.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 600,
+      "seconds": 7.101,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 117,
+        "sha256": "d4895b66adae78e998170edcdde0fccfe16bb25e684bd068f0d11a05cee623c3",
+        "tail": "verify-tls-verify-transient-retry: transient TLS verify failure retries; deterministic failures stay terminal (0098)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "mode": "worker",
+      "status": "PASS",
+      "gate_sha256": "3243a7a0f69dc3402270fb83d6e9c721d1000ee15e44084aab3943348e023af6"
+    },
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-matrix.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 600,
+      "seconds": 23.973,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 5777,
+        "sha256": "5ac1ce4668f60c6a944f4594f5a6a952247dada5b3fdc944701205131d8b2094",
+        "tail": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS g-default-prompt-setting-drift\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n  PASS h-mounted-device-catalogue\n  per-call revival evidence: {\"path\":\"task -> park -> ensureLive\",\"modelIdentity\":\"mock/warm-worker:high\",\"selectedModelIdentity\":\"mock/warm-worker:high\",\"thinkingLevel\":\"low\",\"prefixBytes\":30943,\"prefixSha256\":\"a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de\",\"systemInits\":1}\n  PASS i-public-per-call-warm\n  per-call revival evidence: {\"path\":\"task -> disk-only parked ref -> ensureLive\",\"modelIdentity\":\"mock/warm-worker:high\",\"selectedModelIdentity\":\"mock/warm-worker:high\",\"thinkingLevel\":\"low\",\"prefixBytes\":30943,\"prefixSha256\":\"a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de\",\"systemInits\":1}\n  PASS j-public-per-call-cold\n{\"status\":\"PASS\",\"scenarios\":12,\"failed\":[]}\n  mutation red output: [\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6734: before=\\\"S: linux 7.0.0-31-generic\\\\\\\\n- Arch: x64\\\\\\\\n- Model: mock/mock-model\\\\\\\\n</workstation>\\\\\\\\n</project-context>\\\\\\\\n\\\\\\\\n<critical>\\\\\\\\n- Ea\\\" after=\\\"S: linux 7.0.0-31-generic\\\\\\\\n- Arch: x64\\\\\\\\n</workstation>\\\\\\\\n</project-context>\\\\\\\\n\\\\\\\\n<critical>\\\\\\\\n- Each response MUST advance t\\\"\",\"threw: warm per-call first request must preserve persisted prompt and tool prefix: first difference at char 9936: before=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n- Model: mock/warm-worker:high\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<criti\\\" after=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<critical>\\\\\\\\\\\\\\\\n- Each response MUST advan\\\"\"]\n  ok   mutation rejected: drop the persisted systemPrompt override -> g-default-prompt-setting-drift,i-public-per-call-warm\n  mutation red output: [\"threw: revived session must restore the persisted yield items\",\"threw: revived session must restore the persisted yield items\"]\n  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged\n  mutation red output: [\"threw: mutation: no session_init\"]\n  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init\n  mutation red output: [\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\"]\n  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged\n  mutation red output: [\"threw: the revived device catalogue must equal the pre-park one: first difference at char 1: before=\\\"[\\\\\\\"ast_edit\\\\\\\",\\\\\\\"debug\\\\\\\"]\\\" after=\\\"[]\\\"\"]\n  ok   mutation rejected: restore the tool list without its xd:// device partition -> h-mounted-device-catalogue\n  mutation red output: [\"threw: Cannot revive subagent \\\"PerCallProbe\\\": its per-call model identity and thinking level were not recorded separately, so they cannot be restored exactly. The agent was not revived.\"]\n  ok   mutation rejected: drop persisted per-call model identity -> j-public-per-call-cold\n  mutation red output: [\"threw: Cannot revive subagent \\\"PerCallProbe\\\": its per-call model identity and thinking level were not recorded separately, so they cannot be restored exactly. The agent was not revived.\"]\n  ok   mutation rejected: drop persisted per-call thinking level -> j-public-per-call-cold\n  mutation red output: [\"threw: cold per-call first request must preserve persisted prompt and tool prefix: first difference at char 9936: before=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n- Model: mock/warm-worker:high\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<criti\\\" after=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<critical>\\\\\\\\\\\\\\\\n- Each response MUST advan\\\"\"]\n  ok   mutation rejected: re-render the cold per-call prompt -> j-public-per-call-cold\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "mode": "main",
+      "status": "PASS",
+      "gate_sha256": "bbdae9470682013918472af49b4ac1619aa4e583b3591e516059ccf3c8568986"
+    },
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-matrix.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 1800,
+      "seconds": 527.609,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 5777,
+        "sha256": "5ac1ce4668f60c6a944f4594f5a6a952247dada5b3fdc944701205131d8b2094",
+        "tail": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS g-default-prompt-setting-drift\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n  PASS h-mounted-device-catalogue\n  per-call revival evidence: {\"path\":\"task -> park -> ensureLive\",\"modelIdentity\":\"mock/warm-worker:high\",\"selectedModelIdentity\":\"mock/warm-worker:high\",\"thinkingLevel\":\"low\",\"prefixBytes\":30943,\"prefixSha256\":\"a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de\",\"systemInits\":1}\n  PASS i-public-per-call-warm\n  per-call revival evidence: {\"path\":\"task -> disk-only parked ref -> ensureLive\",\"modelIdentity\":\"mock/warm-worker:high\",\"selectedModelIdentity\":\"mock/warm-worker:high\",\"thinkingLevel\":\"low\",\"prefixBytes\":30943,\"prefixSha256\":\"a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de\",\"systemInits\":1}\n  PASS j-public-per-call-cold\n{\"status\":\"PASS\",\"scenarios\":12,\"failed\":[]}\n  mutation red output: [\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6734: before=\\\"S: linux 7.0.0-31-generic\\\\\\\\n- Arch: x64\\\\\\\\n- Model: mock/mock-model\\\\\\\\n</workstation>\\\\\\\\n</project-context>\\\\\\\\n\\\\\\\\n<critical>\\\\\\\\n- Ea\\\" after=\\\"S: linux 7.0.0-31-generic\\\\\\\\n- Arch: x64\\\\\\\\n</workstation>\\\\\\\\n</project-context>\\\\\\\\n\\\\\\\\n<critical>\\\\\\\\n- Each response MUST advance t\\\"\",\"threw: warm per-call first request must preserve persisted prompt and tool prefix: first difference at char 9936: before=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n- Model: mock/warm-worker:high\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<criti\\\" after=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<critical>\\\\\\\\\\\\\\\\n- Each response MUST advan\\\"\"]\n  ok   mutation rejected: drop the persisted systemPrompt override -> g-default-prompt-setting-drift,i-public-per-call-warm\n  mutation red output: [\"threw: revived session must restore the persisted yield items\",\"threw: revived session must restore the persisted yield items\"]\n  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged\n  mutation red output: [\"threw: mutation: no session_init\"]\n  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init\n  mutation red output: [\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\",\"threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 2: before=\\\"[\\\\\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` =\\\" after=\\\"[\\\\\\\"\u2042 Role\\\\\\\\nYou are a revival probe agent. Finish every turn by calling yield.\\\\\\\\n\u2042 Co\\\"\"]\n  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged\n  mutation red output: [\"threw: the revived device catalogue must equal the pre-park one: first difference at char 1: before=\\\"[\\\\\\\"ast_edit\\\\\\\",\\\\\\\"debug\\\\\\\"]\\\" after=\\\"[]\\\"\"]\n  ok   mutation rejected: restore the tool list without its xd:// device partition -> h-mounted-device-catalogue\n  mutation red output: [\"threw: Cannot revive subagent \\\"PerCallProbe\\\": its per-call model identity and thinking level were not recorded separately, so they cannot be restored exactly. The agent was not revived.\"]\n  ok   mutation rejected: drop persisted per-call model identity -> j-public-per-call-cold\n  mutation red output: [\"threw: Cannot revive subagent \\\"PerCallProbe\\\": its per-call model identity and thinking level were not recorded separately, so they cannot be restored exactly. The agent was not revived.\"]\n  ok   mutation rejected: drop persisted per-call thinking level -> j-public-per-call-cold\n  mutation red output: [\"threw: cold per-call first request must preserve persisted prompt and tool prefix: first difference at char 9936: before=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n- Model: mock/warm-worker:high\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<criti\\\" after=\\\" linux 7.0.0-31-generic\\\\\\\\\\\\\\\\n- Arch: x64\\\\\\\\\\\\\\\\n</workstation>\\\\\\\\\\\\\\\\n</project-context>\\\\\\\\\\\\\\\\n\\\\\\\\\\\\\\\\n<critical>\\\\\\\\\\\\\\\\n- Each response MUST advan\\\"\"]\n  ok   mutation rejected: re-render the cold per-call prompt -> j-public-per-call-cold\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "mode": "worker",
+      "status": "PASS",
+      "gate_sha256": "bbdae9470682013918472af49b4ac1619aa4e583b3591e516059ccf3c8568986"
+    },
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-retry-final.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-retry-slow-schedule.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 600,
+      "seconds": 43.613,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 4967,
+        "sha256": "0547116cdb314c1a8539670341d55f086a7246e5c85d79ca4ffe7a374ecbb561",
+        "tail": "{\"leg\":\"late-limit\",\"calls\":[\"retry-fixture/a\",\"selected-fixture/selected\"],\"waits\":[3000],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Usage limit reached. retry-after-ms=7200000\",\"errorId\":528384},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"8b7cafb7\",\"persistenceKey\":\"assistant:1794293931738:retry-fixture:a::error\",\"note\":\"rate-limited; waited; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:58:54.782Z\",\"recovery\":\"wait\",\"note\":\"rate-limited; waited; retried\",\"supersededBy\":{\"timestamp\":1794293934773,\"provider\":\"selected-fixture\",\"model\":\"selected\"}}}]}]}\nPASS public-session: late-limit\n{\"leg\":\"late-limit-exhausted\",\"calls\":[\"retry-fixture/a\",\"selected-fixture/selected\"],\"waits\":[0],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":0,\"delayMs\":0,\"errorMessage\":\"Usage limit reached. retry-after-ms=7200000\",\"errorId\":528384},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"508c8606\",\"persistenceKey\":\"assistant:1794293934855:retry-fixture:a::error\",\"note\":\"rate-limited; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:58:54.859Z\",\"recovery\":\"plain\",\"note\":\"rate-limited; retried\",\"supersededBy\":{\"timestamp\":1794293934858,\"provider\":\"selected-fixture\",\"model\":\"selected\"}}}]}]}\nPASS public-session: late-limit-exhausted\n{\"leg\":\"role-routing\",\"calls\":[\"retry-fixture/a\",\"retry-fixture/b\"],\"waits\":[0],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"50f39764\",\"persistenceKey\":\"assistant:1794293934907:retry-fixture:a::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:58:54.914Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293934914,\"provider\":\"retry-fixture\",\"model\":\"b\"}}}]}]}\nPASS public-session: role-routing\n{\"leg\":\"role-chain\",\"calls\":[\"retry-fixture/a\",\"retry-fixture/b\",\"retry-fixture/c\",\"retry-fixture/c\",\"retry-fixture/c\"],\"waits\":[0,0,3000,3000],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":2,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":3,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":4,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":4,\"retryErrors\":[{\"entryId\":\"08c21c96\",\"persistenceKey\":\"assistant:1794293934983:retry-fixture:a::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:59:01.008Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293941006,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"6aa7f69b\",\"persistenceKey\":\"assistant:1794293934987:retry-fixture:b::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":2,\"recoveredAt\":\"2026-11-10T06:59:01.008Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293941006,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"71481c33\",\"persistenceKey\":\"assistant:1794293934990:retry-fixture:c::error\",\"note\":\"error; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":3,\"recoveredAt\":\"2026-11-10T06:59:01.008Z\",\"recovery\":\"plain\",\"note\":\"error; retried\",\"supersededBy\":{\"timestamp\":1794293941006,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"2f5f2050\",\"persistenceKey\":\"assistant:1794293937996:retry-fixture:c::error\",\"note\":\"error; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":4,\"recoveredAt\":\"2026-11-10T06:59:01.008Z\",\"recovery\":\"plain\",\"note\":\"error; retried\",\"supersededBy\":{\"timestamp\":1794293941006,\"provider\":\"retry-fixture\",\"model\":\"c\"}}}]}]}\nPASS public-session: role-chain\nPASS settings-mirror: worker import and live updates preserve fixed retry pacing\nverify-retry-slow-schedule: 3-3-5-5-10-10-15-15 s retry pacing (0099)\nPASS retry mutation role-routing: child exit 1; the explicit role must walk its own chain rather than default\nPASS retry mutation carry-backoff: child exit 1; a role-chain target must start at the first two slow retry steps\nPASS retry mutation stale-provider-limit: child exit 1; a late usage-limit error must not suppress the selected provider\nPASS retry mutation stale-budget: child exit 1; an exhausted previous provider budget must not suppress the selected provider\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-retry-slow-schedule.ts",
+      "mode": "main",
+      "status": "PASS",
+      "gate_sha256": "0af88d0f678040353703a913c4ebebc63895ed8567065292b8e4923d9f416941"
+    },
+    {
+      "source_receipt": "/var/tmp/omp-18186/r5c-worker-retry-final.json",
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r5c-matrix-root/r5c-matrix-runtime/install/global",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-retry-slow-schedule.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "timeout_limit_seconds": 600,
+      "seconds": 45.81,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 4967,
+        "sha256": "a58bb23266e613d3a6517c4eb1439acdff32f01e798d78efb47ebae6190c0a59",
+        "tail": "{\"leg\":\"late-limit\",\"calls\":[\"retry-fixture/a\",\"selected-fixture/selected\"],\"waits\":[3000],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Usage limit reached. retry-after-ms=7200000\",\"errorId\":528384},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"88aa4de4\",\"persistenceKey\":\"assistant:1794293975797:retry-fixture:a::error\",\"note\":\"rate-limited; waited; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:59:38.827Z\",\"recovery\":\"wait\",\"note\":\"rate-limited; waited; retried\",\"supersededBy\":{\"timestamp\":1794293978823,\"provider\":\"selected-fixture\",\"model\":\"selected\"}}}]}]}\nPASS public-session: late-limit\n{\"leg\":\"late-limit-exhausted\",\"calls\":[\"retry-fixture/a\",\"selected-fixture/selected\"],\"waits\":[0],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":0,\"delayMs\":0,\"errorMessage\":\"Usage limit reached. retry-after-ms=7200000\",\"errorId\":528384},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"51ad5d1a\",\"persistenceKey\":\"assistant:1794293978884:retry-fixture:a::error\",\"note\":\"rate-limited; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:59:38.888Z\",\"recovery\":\"plain\",\"note\":\"rate-limited; retried\",\"supersededBy\":{\"timestamp\":1794293978887,\"provider\":\"selected-fixture\",\"model\":\"selected\"}}}]}]}\nPASS public-session: late-limit-exhausted\n{\"leg\":\"role-routing\",\"calls\":[\"retry-fixture/a\",\"retry-fixture/b\"],\"waits\":[0],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":1,\"retryErrors\":[{\"entryId\":\"b9a5891d\",\"persistenceKey\":\"assistant:1794293978923:retry-fixture:a::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:59:38.933Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293978932,\"provider\":\"retry-fixture\",\"model\":\"b\"}}}]}]}\nPASS public-session: role-routing\n{\"leg\":\"role-chain\",\"calls\":[\"retry-fixture/a\",\"retry-fixture/b\",\"retry-fixture/c\",\"retry-fixture/c\",\"retry-fixture/c\"],\"waits\":[0,0,3000,3000],\"events\":[{\"type\":\"auto_retry_start\",\"attempt\":1,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":2,\"maxAttempts\":8,\"delayMs\":0,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":3,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_start\",\"attempt\":4,\"maxAttempts\":8,\"delayMs\":3000,\"errorMessage\":\"Connection error.\",\"errorId\":135168},{\"type\":\"auto_retry_end\",\"success\":true,\"attempt\":4,\"retryErrors\":[{\"entryId\":\"45d9f374\",\"persistenceKey\":\"assistant:1794293979001:retry-fixture:a::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":1,\"recoveredAt\":\"2026-11-10T06:59:45.032Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293985028,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"c7a631fe\",\"persistenceKey\":\"assistant:1794293979006:retry-fixture:b::error\",\"note\":\"switched model; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":2,\"recoveredAt\":\"2026-11-10T06:59:45.032Z\",\"recovery\":\"model\",\"note\":\"switched model; retried\",\"supersededBy\":{\"timestamp\":1794293985028,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"a90799dd\",\"persistenceKey\":\"assistant:1794293979010:retry-fixture:c::error\",\"note\":\"error; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":3,\"recoveredAt\":\"2026-11-10T06:59:45.032Z\",\"recovery\":\"plain\",\"note\":\"error; retried\",\"supersededBy\":{\"timestamp\":1794293985028,\"provider\":\"retry-fixture\",\"model\":\"c\"}}},{\"entryId\":\"d34c376e\",\"persistenceKey\":\"assistant:1794293982016:retry-fixture:c::error\",\"note\":\"error; retried\",\"retryRecovery\":{\"kind\":\"auto-retry\",\"status\":\"recovered\",\"attempt\":4,\"recoveredAt\":\"2026-11-10T06:59:45.032Z\",\"recovery\":\"plain\",\"note\":\"error; retried\",\"supersededBy\":{\"timestamp\":1794293985028,\"provider\":\"retry-fixture\",\"model\":\"c\"}}}]}]}\nPASS public-session: role-chain\nPASS settings-mirror: worker import and live updates preserve fixed retry pacing\nverify-retry-slow-schedule: 3-3-5-5-10-10-15-15 s retry pacing (0099)\nPASS retry mutation role-routing: child exit 1; the explicit role must walk its own chain rather than default\nPASS retry mutation carry-backoff: child exit 1; a role-chain target must start at the first two slow retry steps\nPASS retry mutation stale-provider-limit: child exit 1; a late usage-limit error must not suppress the selected provider\nPASS retry mutation stale-budget: child exit 1; an exhausted previous provider budget must not suppress the selected provider\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-retry-slow-schedule.ts",
+      "mode": "worker",
+      "status": "PASS",
+      "gate_sha256": "0af88d0f678040353703a913c4ebebc63895ed8567065292b8e4923d9f416941"
+    }
+  ]
+}

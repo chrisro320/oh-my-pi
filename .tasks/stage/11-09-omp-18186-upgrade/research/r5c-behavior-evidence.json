@@ -1,0 +1,546 @@
+{
+  "state": {
+    "next": 22,
+    "completed": [
+      "family-status-accounting",
+      "family-hindsight",
+      "family-usage-pipeline",
+      "0010-omp-extension-idle-ephemeral-turn",
+      "family-image-budget-snapcompact",
+      "family-persistent-prefix-resume",
+      "0046-omp-supersede-warm-prefix-guard",
+      "0050-omp-session-history-preview",
+      "family-devin-wire",
+      "0069-omp-codex-effort-history-resume",
+      "0074-omp-anthropic-context-cache-boundaries",
+      "family-image-display",
+      "family-input-translation",
+      "family-compaction",
+      "0090-omp-oauth-durable-refresh",
+      "0092-omp-cache-warming-idle-budget",
+      "0094-omp-anthropic-thinking-drop-resume",
+      "0095-omp-context-audit-request-purpose",
+      "0098-omp-tls-verify-transient-retry",
+      "0099-omp-retry-slow-schedule",
+      "0101-omp-subagent-warm-revival-persisted-prompt",
+      "0102-omp-computer-control-confirm-deadline"
+    ],
+    "pending": null
+  },
+  "retry_before": {
+    "source_receipt": "/var/tmp/omp-18186/r5c-retry-role-baseline/receipt.json",
+    "observations": [
+      {
+        "leg": "late-limit",
+        "calls": [
+          "retry-fixture/a",
+          "selected-fixture/selected"
+        ],
+        "waits": [
+          3000
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 3000,
+            "errorMessage": "Usage limit reached. retry-after-ms=7200000",
+            "errorId": 528384
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 1,
+            "retryErrors": [
+              {
+                "entryId": "2b8b5936",
+                "persistenceKey": "assistant:1794292197558:retry-fixture:a::error",
+                "note": "rate-limited; waited; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:30:00.605Z",
+                  "recovery": "wait",
+                  "note": "rate-limited; waited; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292200591,
+                    "provider": "selected-fixture",
+                    "model": "selected"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "leg": "role-routing",
+        "calls": [
+          "retry-fixture/a",
+          "retry-fixture/b"
+        ],
+        "waits": [
+          0
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 1,
+            "retryErrors": [
+              {
+                "entryId": "28d063e8",
+                "persistenceKey": "assistant:1794292200765:retry-fixture:a::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:30:00.773Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292200773,
+                    "provider": "retry-fixture",
+                    "model": "b"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "leg": "role-chain",
+        "calls": [
+          "retry-fixture/a",
+          "retry-fixture/b",
+          "retry-fixture/c",
+          "retry-fixture/c",
+          "retry-fixture/c"
+        ],
+        "waits": [
+          0,
+          0,
+          5000,
+          5000
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 2,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 3,
+            "maxAttempts": 8,
+            "delayMs": 5000,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 4,
+            "maxAttempts": 8,
+            "delayMs": 5000,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 4,
+            "retryErrors": [
+              {
+                "entryId": "313a6d45",
+                "persistenceKey": "assistant:1794292200892:retry-fixture:a::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:30:10.920Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292210917,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "bdc76c3b",
+                "persistenceKey": "assistant:1794292200897:retry-fixture:b::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 2,
+                  "recoveredAt": "2026-11-10T06:30:10.920Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292210917,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "42ce5391",
+                "persistenceKey": "assistant:1794292200901:retry-fixture:c::error",
+                "note": "error; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 3,
+                  "recoveredAt": "2026-11-10T06:30:10.920Z",
+                  "recovery": "plain",
+                  "note": "error; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292210917,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "d286aa8c",
+                "persistenceKey": "assistant:1794292205907:retry-fixture:c::error",
+                "note": "error; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 4,
+                  "recoveredAt": "2026-11-10T06:30:10.920Z",
+                  "recovery": "plain",
+                  "note": "error; retried",
+                  "supersededBy": {
+                    "timestamp": 1794292210917,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "retry_after": {
+    "source_receipt": "/var/tmp/omp-18186/r5c-retry-final/receipt.json",
+    "observations": [
+      {
+        "leg": "late-limit",
+        "calls": [
+          "retry-fixture/a",
+          "selected-fixture/selected"
+        ],
+        "waits": [
+          3000
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 3000,
+            "errorMessage": "Usage limit reached. retry-after-ms=7200000",
+            "errorId": 528384
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 1,
+            "retryErrors": [
+              {
+                "entryId": "d60cd1a9",
+                "persistenceKey": "assistant:1794293925364:retry-fixture:a::error",
+                "note": "rate-limited; waited; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:58:48.401Z",
+                  "recovery": "wait",
+                  "note": "rate-limited; waited; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293928392,
+                    "provider": "selected-fixture",
+                    "model": "selected"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "leg": "late-limit-exhausted",
+        "calls": [
+          "retry-fixture/a",
+          "selected-fixture/selected"
+        ],
+        "waits": [
+          0
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 0,
+            "delayMs": 0,
+            "errorMessage": "Usage limit reached. retry-after-ms=7200000",
+            "errorId": 528384
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 1,
+            "retryErrors": [
+              {
+                "entryId": "573432ae",
+                "persistenceKey": "assistant:1794293928600:retry-fixture:a::error",
+                "note": "rate-limited; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:58:48.605Z",
+                  "recovery": "plain",
+                  "note": "rate-limited; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293928604,
+                    "provider": "selected-fixture",
+                    "model": "selected"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "leg": "role-routing",
+        "calls": [
+          "retry-fixture/a",
+          "retry-fixture/b"
+        ],
+        "waits": [
+          0
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 1,
+            "retryErrors": [
+              {
+                "entryId": "7c6ed277",
+                "persistenceKey": "assistant:1794293928735:retry-fixture:a::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:58:48.742Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293928741,
+                    "provider": "retry-fixture",
+                    "model": "b"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "leg": "role-chain",
+        "calls": [
+          "retry-fixture/a",
+          "retry-fixture/b",
+          "retry-fixture/c",
+          "retry-fixture/c",
+          "retry-fixture/c"
+        ],
+        "waits": [
+          0,
+          0,
+          3000,
+          3000
+        ],
+        "events": [
+          {
+            "type": "auto_retry_start",
+            "attempt": 1,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 2,
+            "maxAttempts": 8,
+            "delayMs": 0,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 3,
+            "maxAttempts": 8,
+            "delayMs": 3000,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_start",
+            "attempt": 4,
+            "maxAttempts": 8,
+            "delayMs": 3000,
+            "errorMessage": "Connection error.",
+            "errorId": 135168
+          },
+          {
+            "type": "auto_retry_end",
+            "success": true,
+            "attempt": 4,
+            "retryErrors": [
+              {
+                "entryId": "d8e5184b",
+                "persistenceKey": "assistant:1794293928829:retry-fixture:a::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 1,
+                  "recoveredAt": "2026-11-10T06:58:54.853Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293934850,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "173b5dd3",
+                "persistenceKey": "assistant:1794293928833:retry-fixture:b::error",
+                "note": "switched model; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 2,
+                  "recoveredAt": "2026-11-10T06:58:54.853Z",
+                  "recovery": "model",
+                  "note": "switched model; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293934850,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "c641fb69",
+                "persistenceKey": "assistant:1794293928837:retry-fixture:c::error",
+                "note": "error; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 3,
+                  "recoveredAt": "2026-11-10T06:58:54.853Z",
+                  "recovery": "plain",
+                  "note": "error; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293934850,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              },
+              {
+                "entryId": "53009ccd",
+                "persistenceKey": "assistant:1794293931842:retry-fixture:c::error",
+                "note": "error; retried",
+                "retryRecovery": {
+                  "kind": "auto-retry",
+                  "status": "recovered",
+                  "attempt": 4,
+                  "recoveredAt": "2026-11-10T06:58:54.853Z",
+                  "recovery": "plain",
+                  "note": "error; retried",
+                  "supersededBy": {
+                    "timestamp": 1794293934850,
+                    "provider": "retry-fixture",
+                    "model": "c"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "per_call_revival": {
+    "source_receipt": "/var/tmp/omp-18186/r5c-revival-final/receipt.json",
+    "observations": [
+      {
+        "path": "task -> park -> ensureLive",
+        "modelIdentity": "mock/warm-worker:high",
+        "selectedModelIdentity": "mock/warm-worker:high",
+        "thinkingLevel": "low",
+        "prefixBytes": 30943,
+        "prefixSha256": "a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de",
+        "systemInits": 1
+      },
+      {
+        "path": "task -> disk-only parked ref -> ensureLive",
+        "modelIdentity": "mock/warm-worker:high",
+        "selectedModelIdentity": "mock/warm-worker:high",
+        "thinkingLevel": "low",
+        "prefixBytes": 30943,
+        "prefixSha256": "a25369383189b36bb5f861e2eb9c611b5705b5ee6354ac1d2647a13488c3c4de",
+        "systemInits": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-09",
+  "reason": "18.16.0 retires in the same change that registers 18.18.6 (two-version rule); every file listed here is byte-pinned.",
+  "destination": ".retired/11-09-pre-18.18.6-plans",
+  "observed_elsewhere": [
+    {
+      "owner": "M7 (patches/native/**)",
+      "from": "native/18.16.0/0001-escape-monitor-mapping-refresh.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/native/18.16.0/0001-escape-monitor-mapping-refresh.patch",
+      "sha256": "e2746453df9c4ee1ffc798a0a3689f36652978839fc2b50badb8548c23f1b4ad",
+      "bytes": 7317
+    },
+    {
+      "owner": "M7 (patches/native/**)",
+      "from": "native/18.16.0/overlay.json",
+      "to": ".retired/11-09-pre-18.18.6-plans/native/18.16.0/overlay.json",
+      "sha256": "7de9e304a5a4a9805b1d68386ae836b9607dc17ebcb61cd0c7c72c1df26cae65",
+      "bytes": 1174
+    }
+  ],
+  "moves": [
+    {
+      "from": ".18.16.0-families/0010-omp-extension-idle-ephemeral-turn-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0010-omp-extension-idle-ephemeral-turn-v18.16.0.patch",
+      "sha256": "54d9e83d5885e63481a8763b94e987d70878956b8c98bf03d11011fd4d267da7",
+      "bytes": 47677
+    },
+    {
+      "from": ".18.16.0-families/0046-omp-supersede-warm-prefix-guard-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0046-omp-supersede-warm-prefix-guard-v18.16.0.patch",
+      "sha256": "4b33fb8f49a9a9abc6ded84886255637d75c8b4923f1c6e0b3bdba55ed934290",
+      "bytes": 1868
+    },
+    {
+      "from": ".18.16.0-families/0048-omp-advisor-quota-rotation-bound-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0048-omp-advisor-quota-rotation-bound-v18.16.0.patch",
+      "sha256": "b20b5e1301f50d0d47cec4515d9f6724f54e6c0b54e91d90c19b7e2769af8813",
+      "bytes": 3590
+    },
+    {
+      "from": ".18.16.0-families/0050-omp-session-history-preview-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0050-omp-session-history-preview-v18.16.0.patch",
+      "sha256": "5cfd967773a809f00d58e5fd9e01251615174a93d7d4fc6ebfc8f322c3ae5d81",
+      "bytes": 7743
+    },
+    {
+      "from": ".18.16.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.16.0.patch",
+      "sha256": "cc6b60c42b4055d00554761f69e40cf8f10442ad5f3e057da9930c87cfe9d0ba",
+      "bytes": 995536
+    },
+    {
+      "from": ".18.16.0-families/0069-omp-codex-effort-history-resume-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0069-omp-codex-effort-history-resume-v18.16.0.patch",
+      "sha256": "305085360f5ee19a2330928bb0d827beddeb76da4d4be6268f7c30d5b24baf2a",
+      "bytes": 9233
+    },
+    {
+      "from": ".18.16.0-families/0074-omp-anthropic-context-cache-boundaries-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0074-omp-anthropic-context-cache-boundaries-v18.16.0.patch",
+      "sha256": "2763687da7324f0aeabd36c74d384c0fd22cdad4605301b2744bbe72b9ca0fb5",
+      "bytes": 26818
+    },
+    {
+      "from": ".18.16.0-families/0090-omp-oauth-durable-refresh-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0090-omp-oauth-durable-refresh-v18.16.0.patch",
+      "sha256": "26783f48f581e82c77ff9da880c2480a161b1583bd25d0fbce105be75cb9a3d0",
+      "bytes": 160529
+    },
+    {
+      "from": ".18.16.0-families/0092-omp-cache-warming-idle-budget-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0092-omp-cache-warming-idle-budget-v18.16.0.patch",
+      "sha256": "7faffb497149200d8877868fdfba7542683af4509202593ea791071ac02d377a",
+      "bytes": 39772
+    },
+    {
+      "from": ".18.16.0-families/0094-omp-anthropic-thinking-drop-resume-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0094-omp-anthropic-thinking-drop-resume-v18.16.0.patch",
+      "sha256": "ffb17f34c321aff1c11e69caeda34b9bd6d810400cad822fd399b854055f90bd",
+      "bytes": 15192
+    },
+    {
+      "from": ".18.16.0-families/0095-omp-context-audit-request-purpose-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0095-omp-context-audit-request-purpose-v18.16.0.patch",
+      "sha256": "84849477a1ef5b7a0d498c29d9cb9ae6f19f7f6b842b2fde9a767b753e73e064",
+      "bytes": 8271
+    },
+    {
+      "from": ".18.16.0-families/0098-omp-tls-verify-transient-retry-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0098-omp-tls-verify-transient-retry-v18.16.0.patch",
+      "sha256": "034bfde0bd4b8377119a8ae5ed4d81158357000c067c83d58d77cc2e436c0e9c",
+      "bytes": 962
+    },
+    {
+      "from": ".18.16.0-families/0099-omp-retry-slow-schedule-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0099-omp-retry-slow-schedule-v18.16.0.patch",
+      "sha256": "2bdebb2d86a9ec573019ae6cbde0cbf352897257f2aaec8659d532be562f260a",
+      "bytes": 1285
+    },
+    {
+      "from": ".18.16.0-families/0100-omp-stepfun-step-plan-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0100-omp-stepfun-step-plan-v18.16.0.patch",
+      "sha256": "f13e97ae1135e2fa08fc1eca209e1de844c9a9d1197df6eb8208582b0556c7f4",
+      "bytes": 3312352
+    },
+    {
+      "from": ".18.16.0-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.16.0.patch",
+      "sha256": "64fdd398b493c9ae24b3fe1424697e788a2628582382e50c9d998368232a5f6e",
+      "bytes": 2432
+    },
+    {
+      "from": ".18.16.0-families/0102-omp-computer-control-confirm-deadline-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/0102-omp-computer-control-confirm-deadline-v18.16.0.patch",
+      "sha256": "e221bf5f82c8edde2dc101e322c57c6e6971fb78f795e9e2e9af352be69aa83b",
+      "bytes": 1741
+    },
+    {
+      "from": ".18.16.0-families/approvals.json",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/approvals.json",
+      "sha256": "2f1ffbb1eceb0ec534c95005ca144212c733240284ecd22e27a563f7ec4b73d1",
+      "bytes": 923
+    },
+    {
+      "from": ".18.16.0-families/family-antigravity-wire-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-antigravity-wire-v18.16.0.patch",
+      "sha256": "84b0c5e7fad21a152fb6b8ff1c5d79cee55c6cc7f0569b5e1dd318e37811e641",
+      "bytes": 4353
+    },
+    {
+      "from": ".18.16.0-families/family-compaction-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-compaction-v18.16.0.patch",
+      "sha256": "6c921f591d699e3f7b8d4f0cdc8f1354baaedc40ce6e98435cf2826c384c99d3",
+      "bytes": 199262
+    },
+    {
+      "from": ".18.16.0-families/family-devin-wire-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-devin-wire-v18.16.0.patch",
+      "sha256": "08eb694f73b6a0079a29709d2e56d47e0f4c592f2838a5cd4ea9b5ca174eeb10",
+      "bytes": 28688
+    },
+    {
+      "from": ".18.16.0-families/family-hindsight-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-hindsight-v18.16.0.patch",
+      "sha256": "1df62581ce5254a358f5170172e62c5e73ecbed2ffce0d3e377d3056c63f8dbc",
+      "bytes": 42575
+    },
+    {
+      "from": ".18.16.0-families/family-image-budget-snapcompact-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-image-budget-snapcompact-v18.16.0.patch",
+      "sha256": "e89eb9a9f68a50404ecdc0c4c7b919d7ebda2811a8f5500731fbee4885d9a9e9",
+      "bytes": 1004615
+    },
+    {
+      "from": ".18.16.0-families/family-image-display-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-image-display-v18.16.0.patch",
+      "sha256": "bd8ce5ea0f427e6ebe9e723644b12044991ef3dda58758c119d9165e58829aa7",
+      "bytes": 33076
+    },
+    {
+      "from": ".18.16.0-families/family-input-translation-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-input-translation-v18.16.0.patch",
+      "sha256": "46f0bde122e8cb7151bf835ca79f807cae5363b80de546c706d168f78f861a86",
+      "bytes": 154919
+    },
+    {
+      "from": ".18.16.0-families/family-persistent-prefix-resume-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-persistent-prefix-resume-v18.16.0.patch",
+      "sha256": "830674422ac83c49fd53d58b353f4c7962a08fdfddb66f17d1a0f0121c53c186",
+      "bytes": 139195
+    },
+    {
+      "from": ".18.16.0-families/family-status-accounting-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-status-accounting-v18.16.0.patch",
+      "sha256": "868bbd2ad1e5817e7c4e6a5f6105cc28ad4fa957e01cc6b9e05f3fddae82c314",
+      "bytes": 17121
+    },
+    {
+      "from": ".18.16.0-families/family-usage-pipeline-v18.16.0.patch",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/family-usage-pipeline-v18.16.0.patch",
+      "sha256": "34dbfba67508aa7001c4bad6bb775829963595f500362da6814a0b961dcd472d",
+      "bytes": 54097
+    },
+    {
+      "from": ".18.16.0-families/manifest.json",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/manifest.json",
+      "sha256": "e94147aea7acbaeeb7321b7c45b28e43cf0588fd8fe7e44b42d14549e31880a1",
+      "bytes": 28020
+    },
+    {
+      "from": ".18.16.0-families/plan.tsv",
+      "to": ".retired/11-09-pre-18.18.6-plans/.18.16.0-families/plan.tsv",
+      "sha256": "caad19648200a6d4033d28c63df99449d65bfd6ff35b14a6ed941f3b459a9b29",
+      "bytes": 2080
+    },
+    {
+      "from": "verify-extensions-load-18160.ts",
+      "to": ".retired/11-09-pre-18.18.6-plans/verify-extensions-load-18160.ts",
+      "sha256": "db73a8f278a964bc57ea6132bd5aafaeae955acb22f274999c5a8c318c41f6d3",
+      "bytes": 26786
+    }
+  ]
+}

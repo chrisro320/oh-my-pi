@@ -1,0 +1,62 @@
+[
+  {
+    "id": "0094-omp-anthropic-thinking-drop-resume",
+    "historical": {
+      "hunks": 19,
+      "additions": 189,
+      "deletions": 66
+    },
+    "accepted": {
+      "hunks": 19,
+      "additions": 187,
+      "deletions": 58
+    },
+    "paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/anthropic.ts",
+      "pi-ai/src/types.ts",
+      "pi-ai/src/judgment/chat.ts"
+    ],
+    "conflicted_paths": [
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "retired_code_removed": 0
+  },
+  {
+    "id": "0095-omp-context-audit-request-purpose",
+    "historical": {
+      "hunks": 33,
+      "additions": 99,
+      "deletions": 31
+    },
+    "accepted": {
+      "hunks": 33,
+      "additions": 99,
+      "deletions": 31
+    },
+    "paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/hooks/runner.ts",
+      "pi-coding-agent/src/extensibility/shared-events.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/edit/auto-repair.ts",
+      "pi-coding-agent/src/memories/index.ts",
+      "pi-coding-agent/src/mnemopi/backend.ts",
+      "pi-coding-agent/src/sharpshooter/extract.ts",
+      "pi-coding-agent/src/sharpshooter/consolidate.ts",
+      "pi-coding-agent/src/utils/title-generator.ts",
+      "pi-coding-agent/src/utils/commit-message-generator.ts",
+      "pi-coding-agent/src/commit/changelog/generate.ts",
+      "pi-coding-agent/src/commit/conventional/inference.ts",
+      "pi-coding-agent/src/extensibility/custom-commands/bundled/annotate/text-summary.ts",
+      "pi-coding-agent/src/tts/speech-enhancer.ts"
+    ],
+    "conflicted_paths": [],
+    "retired_code_removed": 0
+  }
+]

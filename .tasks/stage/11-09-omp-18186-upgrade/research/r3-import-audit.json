@@ -1,0 +1,53 @@
+{
+  "baselines": [
+    "pristine",
+    "chain12"
+  ],
+  "files": 44,
+  "removed_imports": [
+    {
+      "path": "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "baseline": "pristine",
+      "binding": "textContent",
+      "module": "@oh-my-pi/pi-tui/chat/transcript-entry",
+      "remaining_code_references": 0
+    },
+    {
+      "path": "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "baseline": "chain12",
+      "binding": "textContent",
+      "module": "@oh-my-pi/pi-tui/chat/transcript-entry",
+      "remaining_code_references": 0
+    },
+    {
+      "path": "pi-tui/src/chat/chat-transcript-builder.ts",
+      "baseline": "pristine",
+      "binding": "textContent",
+      "module": "./transcript-entry",
+      "remaining_code_references": 0
+    },
+    {
+      "path": "pi-tui/src/chat/chat-transcript-builder.ts",
+      "baseline": "chain12",
+      "binding": "textContent",
+      "module": "./transcript-entry",
+      "remaining_code_references": 0
+    }
+  ],
+  "dangling_removed_imports": 0,
+  "patch_metrics": {
+    "old": {
+      "paths": 44,
+      "hunks": 209,
+      "added": 1363,
+      "removed": 230
+    },
+    "accepted": {
+      "paths": 44,
+      "hunks": 212,
+      "added": 1370,
+      "removed": 237
+    },
+    "conflict_blocks": 19
+  }
+}

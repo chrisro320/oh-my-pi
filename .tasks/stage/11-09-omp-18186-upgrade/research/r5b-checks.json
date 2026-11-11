@@ -1,0 +1,25 @@
+{
+  "method": "Observed rebase check command output; no export.",
+  "checks": [
+    {
+      "through": "0094-omp-anthropic-thinking-drop-resume",
+      "accepted": 17,
+      "exit": 0,
+      "replay_equals_work": true,
+      "digest": "a94fe74f910efd2a5e026b05ebbc80e802272e4b9b7cec2411ff114c9dea82cf"
+    },
+    {
+      "through": "0095-omp-context-audit-request-purpose",
+      "accepted": 18,
+      "exit": 0,
+      "replay_equals_work": true,
+      "digest": "d5939106097b8887bfbfa9f7be376e1405f37316c4362d66842cfc5543646898"
+    }
+  ],
+  "state_at_completion": {
+    "next": 18,
+    "pending": null
+  },
+  "snapshot": "/var/tmp/omp-18186/r5b-snap18",
+  "runtime_node_modules": "/home/chris/checkouts/r5b-thinking-purpose-runtime/install/global/node_modules"
+}

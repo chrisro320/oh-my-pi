@@ -1,0 +1,226 @@
+{
+  "compiler": "/home/chris/.local/lib/node_modules/typescript/bin/tsc",
+  "compiler_version": "Version 6.0.3",
+  "candidate_digest": "e92a3f3f1a666098d8ecac93b81b72f6746a8aa4876f34acbc202856b08d3180",
+  "raw_receipt": "/var/tmp/omp-18186/r3-typecheck-complete/receipt.json",
+  "normalization": "diagnostic multiset by relative source path, TS code and message; ignore shifted line/column",
+  "error_counts": {
+    "pristine": {
+      "pi-ai": 252,
+      "pi-agent-core": 27,
+      "pi-coding-agent": 1844,
+      "pi-tui": 212,
+      "pi-catalog": 73,
+      "snapcompact": 4
+    },
+    "chain12": {
+      "pi-ai": 253,
+      "pi-agent-core": 27,
+      "pi-coding-agent": 1856,
+      "pi-tui": 213,
+      "pi-catalog": 73,
+      "snapcompact": 4
+    },
+    "family13": {
+      "pi-ai": 253,
+      "pi-agent-core": 27,
+      "pi-coding-agent": 1856,
+      "pi-tui": 213,
+      "pi-catalog": 73,
+      "snapcompact": 4
+    }
+  },
+  "compiler_exits": {
+    "pristine": {
+      "pi-ai": 2,
+      "pi-agent-core": 2,
+      "pi-coding-agent": 2,
+      "pi-tui": 2,
+      "pi-catalog": 2,
+      "snapcompact": 2
+    },
+    "chain12": {
+      "pi-ai": 2,
+      "pi-agent-core": 2,
+      "pi-coding-agent": 2,
+      "pi-tui": 2,
+      "pi-catalog": 2,
+      "snapcompact": 2
+    },
+    "family13": {
+      "pi-ai": 2,
+      "pi-agent-core": 2,
+      "pi-coding-agent": 2,
+      "pi-tui": 2,
+      "pi-catalog": 2,
+      "snapcompact": 2
+    }
+  },
+  "deltas": {
+    "pristine->chain12": {
+      "pi-ai": {
+        "added": [
+          {
+            "file": "@oh-my-pi/pi-ai/src/stream.ts",
+            "code": "TS2339",
+            "message": "Property 'requestPurpose' does not exist on type 'SimpleStreamOptions'.",
+            "count": 1
+          }
+        ],
+        "removed": []
+      },
+      "pi-agent-core": {
+        "added": [],
+        "removed": []
+      },
+      "pi-coding-agent": {
+        "added": [
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/controllers/btw-controller.ts",
+            "code": "TS2322",
+            "message": "Type 'AgentSession | AgentViewSession' is not assignable to type 'AgentViewSession'.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/controllers/session-focus-controller.ts",
+            "code": "TS2345",
+            "message": "Argument of type 'AgentSession' is not assignable to parameter of type 'AgentViewSession'.",
+            "count": 2
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+            "code": "TS2322",
+            "message": "Type 'AgentSession | AgentViewSession' is not assignable to type 'AgentViewSession'.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+            "code": "TS2322",
+            "message": "Type 'AgentSession' is not assignable to type 'AgentViewSession'.",
+            "count": 2
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/interactive-mode.ts",
+            "code": "TS2345",
+            "message": "Argument of type 'AgentSession | AgentViewSession' is not assignable to parameter of type 'AgentViewSession'.",
+            "count": 2
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/modes/status-line-host.ts",
+            "code": "TS2345",
+            "message": "Argument of type 'string[] | undefined' is not assignable to parameter of type 'string | undefined'.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/agent-session.ts",
+            "code": "TS2416",
+            "message": "Property 'fetchUsageReports' in type 'AgentSession' is not assignable to the same property in base type 'AgentViewSession'.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer-marker.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-arrived.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer-marker.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-departed.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer-marker.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-stale-fork.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/slash-commands/builtin-modes.ts",
+            "code": "TS2345",
+            "message": "Argument of type 'AgentSession' is not assignable to parameter of type 'AgentViewSession'.",
+            "count": 2
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/thread/session-publisher.ts",
+            "code": "TS2345",
+            "message": "Argument of type 'readonly string[] | undefined' is not assignable to parameter of type 'string | undefined'.",
+            "count": 1
+          }
+        ],
+        "removed": [
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/hindsight/state.ts",
+            "code": "TS2868",
+            "message": "Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-arrived.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-departed.md' or its corresponding type declarations.",
+            "count": 1
+          },
+          {
+            "file": "@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+            "code": "TS2307",
+            "message": "Cannot find module '../prompts/session/transfer-stale-fork.md' or its corresponding type declarations.",
+            "count": 1
+          }
+        ]
+      },
+      "pi-tui": {
+        "added": [
+          {
+            "file": "@oh-my-pi/pi-tui/src/overlays/session-selector.ts",
+            "code": "TS2322",
+            "message": "Type 'NativeNode | undefined' is not assignable to type 'NativeChild'.",
+            "count": 1
+          }
+        ],
+        "removed": []
+      },
+      "pi-catalog": {
+        "added": [],
+        "removed": []
+      },
+      "snapcompact": {
+        "added": [],
+        "removed": []
+      }
+    },
+    "chain12->family13": {
+      "pi-ai": {
+        "added": [],
+        "removed": []
+      },
+      "pi-agent-core": {
+        "added": [],
+        "removed": []
+      },
+      "pi-coding-agent": {
+        "added": [],
+        "removed": []
+      },
+      "pi-tui": {
+        "added": [],
+        "removed": []
+      },
+      "pi-catalog": {
+        "added": [],
+        "removed": []
+      },
+      "snapcompact": {
+        "added": [],
+        "removed": []
+      }
+    }
+  },
+  "discarded_attempt": "/var/tmp/omp-18186/r3-typecheck: invalid incomplete runtime after an over-broad rsync --delete; seven unselected packages restored before all reported gates and the final differential"
+}

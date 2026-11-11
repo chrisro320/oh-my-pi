@@ -17,8 +17,8 @@ RESUME: 等 OMP2 正式發布。恢復時先讀 OMP2 原始碼（不只發布說
 
 ## 做法
 - 依據：每項能力的故障簽名在 `patches/.retired/11-07-PATCHES-history.md` 同號小節；只搬概念與故障簽名，不搬程式碼。
-- 背景：omp² 設計文 https://stencil.so/blog/harness-playbook （Rust 核心、Python 擴充、單一由 journal 推導的 session 樹；摘要見 `.tasks/11-08-notes-precompact-branch-subagents/TASK.md`「恢復時先做」）。
-- 同時恢復 `.tasks/11-08-notes-precompact-branch-subagents/`（壓縮前存筆記、分支子代理、平行合併鎖），它的恢復條件也是 OMP2。
+- 背景：omp² 設計文 https://stencil.so/blog/harness-playbook （Rust 核心、Python 擴充、單一由 journal 推導的 session 樹；摘要見 `.tasks/stage/11-08-notes-precompact-branch-subagents/TASK.md`「恢復時先做」）。
+- 同時恢復 `.tasks/stage/11-08-notes-precompact-branch-subagents/`（壓縮前存筆記、分支子代理、平行合併鎖），它的恢復條件也是 OMP2。
 - 決策：`DECISIONS.md`「OMP2 遷移原則」。
 
 ## 分工

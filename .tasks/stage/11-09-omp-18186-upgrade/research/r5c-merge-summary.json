@@ -1,0 +1,75 @@
+[
+  {
+    "family": "0098-omp-tls-verify-transient-retry",
+    "old_paths": 1,
+    "accepted_paths": [
+      "pi-ai/src/error/flags.ts"
+    ],
+    "historical": {
+      "hunks": 2,
+      "additions": 9,
+      "deletions": 1
+    },
+    "accepted": {
+      "hunks": 2,
+      "additions": 9,
+      "deletions": 1
+    },
+    "retired_code_removed": false
+  },
+  {
+    "family": "0099-omp-retry-slow-schedule",
+    "old_paths": 1,
+    "accepted_paths": [
+      "pi-coding-agent/src/session/retry-fallback-chains.ts",
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "historical": {
+      "hunks": 1,
+      "additions": 9,
+      "deletions": 7
+    },
+    "accepted": {
+      "hunks": 6,
+      "additions": 22,
+      "deletions": 13
+    },
+    "retired_code_removed": false
+  },
+  {
+    "family": "0101-omp-subagent-warm-revival-persisted-prompt",
+    "old_paths": 1,
+    "accepted_paths": [
+      "pi-coding-agent/src/task/executor.ts"
+    ],
+    "historical": {
+      "hunks": 5,
+      "additions": 9,
+      "deletions": 1
+    },
+    "accepted": {
+      "hunks": 5,
+      "additions": 9,
+      "deletions": 1
+    },
+    "retired_code_removed": false
+  },
+  {
+    "family": "0102-omp-computer-control-confirm-deadline",
+    "old_paths": 1,
+    "accepted_paths": [
+      "pi-coding-agent/src/tools/computer/supervisor.ts"
+    ],
+    "historical": {
+      "hunks": 2,
+      "additions": 10,
+      "deletions": 4
+    },
+    "accepted": {
+      "hunks": 2,
+      "additions": 10,
+      "deletions": 4
+    },
+    "retired_code_removed": false
+  }
+]

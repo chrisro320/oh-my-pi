@@ -1,0 +1,173 @@
+{
+  "method": "Lossless selection of latest complete-gate rows for the final gate sources; not a combined run",
+  "rows": [
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-family-gates/receipt.json",
+      "version": "18.18.6",
+      "row": {
+        "gate": "verify-tls-verify-transient-retry.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 0.42,
+        "log": "/var/tmp/omp-18186/r5c-family-gates/logs/verify-tls-verify-transient-retry.log",
+        "flags": [],
+        "capabilities": [
+          "0098"
+        ],
+        "selected_by": [
+          "family 0098-omp-tls-verify-transient-retry (guard of verify-tls-verify-transient-retry.ts)"
+        ],
+        "gate_sha256": "3243a7a0f69dc3402270fb83d6e9c721d1000ee15e44084aab3943348e023af6",
+        "started": "2026-11-10T06:37:33.778+00:00",
+        "finished": "2026-11-10T06:37:34.194+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17356,
+        "before": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "after": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "unchanged": true
+      }
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-family-gates/receipt.json",
+      "version": "18.18.6",
+      "row": {
+        "gate": "verify-computer-control-confirm-deadline.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 0.47,
+        "log": "/var/tmp/omp-18186/r5c-family-gates/logs/verify-computer-control-confirm-deadline.log",
+        "flags": [],
+        "capabilities": [
+          "0102"
+        ],
+        "selected_by": [
+          "family 0102-omp-computer-control-confirm-deadline (guard of verify-computer-control-confirm-deadline.ts)"
+        ],
+        "gate_sha256": "eaa29f8639bdc7563ac4ebf57c0fbe744c0a5514f3dd2d1beedef55af2b1912d",
+        "started": "2026-11-10T06:38:07.507+00:00",
+        "finished": "2026-11-10T06:38:07.976+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17356,
+        "before": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "after": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "unchanged": true
+      }
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-retry-final/receipt.json",
+      "version": "18.18.6",
+      "row": {
+        "gate": "verify-retry-slow-schedule.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 36.26,
+        "log": "/var/tmp/omp-18186/r5c-retry-final/logs/verify-retry-slow-schedule.log",
+        "flags": [],
+        "capabilities": [
+          "0099"
+        ],
+        "selected_by": [
+          "--gates"
+        ],
+        "gate_sha256": "0af88d0f678040353703a913c4ebebc63895ed8567065292b8e4923d9f416941",
+        "started": "2026-11-10T06:58:44.294+00:00",
+        "finished": "2026-11-10T06:59:20.550+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17356,
+        "before": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "after": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "unchanged": true
+      }
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-revival-final/receipt.json",
+      "version": "18.18.6",
+      "row": {
+        "gate": "verify-subagent-warm-revival-prompt.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 14.59,
+        "log": "/var/tmp/omp-18186/r5c-revival-final/logs/verify-subagent-warm-revival-prompt.log",
+        "flags": [],
+        "capabilities": [
+          "0101"
+        ],
+        "selected_by": [
+          "--gates"
+        ],
+        "gate_sha256": "bbdae9470682013918472af49b4ac1619aa4e583b3591e516059ccf3c8568986",
+        "started": "2026-11-10T06:44:08.551+00:00",
+        "finished": "2026-11-10T06:44:23.144+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17356,
+        "before": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "after": "9932f9cfaea4dc4dbb9b6d830a56fab18584e80c5d5ba2733bf07c6784b16e36",
+        "unchanged": true
+      }
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-stable-gates/receipt.json",
+      "version": "18.18.0",
+      "row": {
+        "gate": "verify-subagent-warm-revival-prompt.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 8.68,
+        "log": "/var/tmp/omp-18186/r5c-stable-gates/logs/verify-subagent-warm-revival-prompt.log",
+        "flags": [],
+        "capabilities": [
+          "0101"
+        ],
+        "selected_by": [
+          "--gates"
+        ],
+        "gate_sha256": "bbdae9470682013918472af49b4ac1619aa4e583b3591e516059ccf3c8568986",
+        "started": "2026-11-10T06:44:30.403+00:00",
+        "finished": "2026-11-10T06:44:39.087+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17329,
+        "before": "2644167106badba690c843de6cd9eab3b51e8a8a2be49cadf02c689319fd879e",
+        "after": "2644167106badba690c843de6cd9eab3b51e8a8a2be49cadf02c689319fd879e",
+        "unchanged": true
+      }
+    },
+    {
+      "receipt": "/var/tmp/omp-18186/r5c-stable-retry-final/receipt.json",
+      "version": "18.18.0",
+      "row": {
+        "gate": "verify-retry-slow-schedule.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 0.82,
+        "log": "/var/tmp/omp-18186/r5c-stable-retry-final/logs/verify-retry-slow-schedule.log",
+        "flags": [],
+        "capabilities": [
+          "0099"
+        ],
+        "selected_by": [
+          "--gates"
+        ],
+        "gate_sha256": "0af88d0f678040353703a913c4ebebc63895ed8567065292b8e4923d9f416941",
+        "started": "2026-11-10T06:59:29.045+00:00",
+        "finished": "2026-11-10T06:59:29.861+00:00"
+      },
+      "runtime_digest": {
+        "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+        "entries": 17329,
+        "before": "2644167106badba690c843de6cd9eab3b51e8a8a2be49cadf02c689319fd879e",
+        "after": "2644167106badba690c843de6cd9eab3b51e8a8a2be49cadf02c689319fd879e",
+        "unchanged": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "candidate_runtime_digest": "63ba50791583ed2f88b7ee8945f737f6f4f1f3b5fc8a621dd65bde09eba3cf59",
+  "entries": 17356,
+  "snapshot_packages": [
+    {
+      "package": "pi-agent-core",
+      "snapshot": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+      "runtime": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+      "equal": true
+    },
+    {
+      "package": "pi-ai",
+      "snapshot": "eaa5eda36243159b9a6e3a41280949dbfb4c6471ed86a1c79b8289246d9c1583",
+      "runtime": "eaa5eda36243159b9a6e3a41280949dbfb4c6471ed86a1c79b8289246d9c1583",
+      "equal": true
+    },
+    {
+      "package": "pi-catalog",
+      "snapshot": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+      "runtime": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+      "equal": true
+    },
+    {
+      "package": "pi-coding-agent",
+      "snapshot": "a436f7a41ee22861355a16246f4563ed7f039df04463dd93829993d91f805b5b",
+      "runtime": "a436f7a41ee22861355a16246f4563ed7f039df04463dd93829993d91f805b5b",
+      "equal": true
+    },
+    {
+      "package": "pi-tui",
+      "snapshot": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+      "runtime": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+      "equal": true
+    },
+    {
+      "package": "snapcompact",
+      "snapshot": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+      "runtime": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+      "equal": true
+    }
+  ],
+  "stable_versions": {
+    "omp-stats": "18.18.0",
+    "omptype": "18.18.0",
+    "pi-agent-core": "18.18.0",
+    "pi-ai": "18.18.0",
+    "pi-catalog": "18.18.0",
+    "pi-coding-agent": "18.18.0",
+    "pi-mnemopi": "18.18.0",
+    "pi-natives": "18.18.0",
+    "pi-natives-linux-x64": "18.18.0",
+    "pi-tui": "18.18.0",
+    "pi-utils": "18.18.0",
+    "pi-wire": "18.18.0",
+    "snapcompact": "18.18.0"
+  }
+}

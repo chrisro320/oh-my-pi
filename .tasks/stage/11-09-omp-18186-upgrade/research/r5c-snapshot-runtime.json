@@ -1,0 +1,43 @@
+{
+  "snapshot": "/var/tmp/omp-18186/r5c-snap22",
+  "runtime": "/home/chris/checkouts/r5c-tail-runtime/install/global/node_modules",
+  "snapshot_chain_sha256": "ea3ac417a3b6556385cc8446a3e55edc6f999bfa8004942e7fd3c73f3da23e33",
+  "packages": [
+    {
+      "package": "pi-ai",
+      "source_sha256": "4c5e337e94bbdb4c3382c26daea3a50799002451d11a5bceae276a64b33dd091",
+      "runtime_sha256": "4c5e337e94bbdb4c3382c26daea3a50799002451d11a5bceae276a64b33dd091",
+      "equal": true
+    },
+    {
+      "package": "pi-agent-core",
+      "source_sha256": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+      "runtime_sha256": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+      "equal": true
+    },
+    {
+      "package": "pi-coding-agent",
+      "source_sha256": "18849291638eecbb0f5684e1822e1a7d14486d2ca1a0f4f9debbde96c3174411",
+      "runtime_sha256": "18849291638eecbb0f5684e1822e1a7d14486d2ca1a0f4f9debbde96c3174411",
+      "equal": true
+    },
+    {
+      "package": "pi-tui",
+      "source_sha256": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+      "runtime_sha256": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+      "equal": true
+    },
+    {
+      "package": "pi-catalog",
+      "source_sha256": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+      "runtime_sha256": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+      "equal": true
+    },
+    {
+      "package": "snapcompact",
+      "source_sha256": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+      "runtime_sha256": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+      "equal": true
+    }
+  ]
+}

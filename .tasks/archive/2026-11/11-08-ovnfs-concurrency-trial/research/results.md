@@ -20,7 +20,7 @@ Isolation of the run: private daemon (`--state/--mount` under `/var/tmp/ovnfs-tr
 `HOME` and `TMPDIR` inside scratch. After the run: scratch removed, no private `ovnfs serve`, no
 private mount, user daemon `ovnfs status` = pid 2760573, checkouts 0, snapshots 1, bases 1,
 layers 1 (as before), `~/.o2/ovnfs.yml` still absent, repo `git status --porcelain` unchanged
-(`?? .tasks/stage/11-08-ovnfs-concurrency-trial/`). Peak scratch ≈ 2.6 GB.
+(`?? .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial/`). Peak scratch ≈ 2.6 GB.
 
 Rerun one claim: `cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4`
 (any comma list, `--repeat N`).

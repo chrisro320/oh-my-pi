@@ -31,7 +31,7 @@
    "layers": 1
   },
   "user_o2_config_exists": false,
-  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+  "repo_git_status": "?? .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial/\n"
  },
  "claims": {
   "C3": {
@@ -92,7 +92,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 3.5,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C3"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C3"
   },
   "C4": {
    "title": "Three-way apply of many checkouts into one folder",
@@ -838,7 +838,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 9.2,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4"
   },
   "C6": {
    "title": "Cache/ignored paths visible, read-only, always live",
@@ -887,7 +887,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 1.8,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C6"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C6"
   },
   "C7": {
    "title": "Search vs snap/rm/writes; a stalled checkout vs others; concurrent start",
@@ -1016,7 +1016,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 35.5,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C7"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C7"
   },
   "C8": {
    "title": "snap/fork during writes; snapshot O(1)",
@@ -1280,7 +1280,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 78.0,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C8"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C8"
   },
   "C9": {
    "title": "kill -9: unflushed (<2 s) files lost, the rest and conflict resolutions kept",
@@ -1367,7 +1367,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 31.5,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C9"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C9"
   },
   "C10": {
    "title": "omp isolated parallel subagents on ovnfs checkouts",
@@ -1586,7 +1586,7 @@
    "notes": {},
    "repeat": 2,
    "seconds": 15.2,
-   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10"
+   "command": "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10"
   }
  },
  "teardown": {
@@ -1605,7 +1605,7 @@
    "layers": 1
   },
   "user_o2_config_exists": false,
-  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+  "repo_git_status": "?? .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial/\n"
  },
  "tmp_leftovers_from_trial": [],
  "user_state_unchanged": {

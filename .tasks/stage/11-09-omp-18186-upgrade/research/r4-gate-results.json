@@ -1,0 +1,246 @@
+{
+  "tree_digest": "7fc588ba993f08e237e3e14f4aba7a56fc6324bf47859119620b283d65caa100",
+  "runtime_digest": "845e8c424247d757a21add0a04e6dfbf1bcba189047afc4d0f30dc9c02025f98",
+  "final_rows": [
+    {
+      "receipt": "family",
+      "gate": "verify-prefix-cache-compaction.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.47,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-prefix-cache-compaction.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "family family-compaction (covers of verify-prefix-cache-compaction.ts)"
+      ],
+      "gate_sha256": "bcb72527cb3d9d71b19c240044a7afd74ba884c81ad0a18b0591534f3741c4f0",
+      "started": "2026-11-10T05:22:36.433+00:00",
+      "finished": "2026-11-10T05:22:36.899+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-codex-compaction-chain.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.52,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-codex-compaction-chain.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "family family-compaction (covers of verify-codex-compaction-chain.ts)"
+      ],
+      "gate_sha256": "ce2e4b1254d41a4515f337e6c2e3b766fe8847fa5650e8dff5a4f6e74ec20062",
+      "started": "2026-11-10T05:22:36.914+00:00",
+      "finished": "2026-11-10T05:22:37.430+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-compaction-lane-trace.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.32,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-compaction-lane-trace.log",
+      "flags": [],
+      "capabilities": [
+        "0067"
+      ],
+      "selected_by": [
+        "family family-compaction (guard of verify-compaction-lane-trace.ts)",
+        "family family-compaction (covers of verify-compaction-lane-trace.ts)"
+      ],
+      "gate_sha256": "4511a11ea84e1d6076398f8f3d88dfee40fa7054bb72b3dba735150389a0db09",
+      "started": "2026-11-10T05:22:37.437+00:00",
+      "finished": "2026-11-10T05:22:37.753+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.62,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-codex-compaction-chain-fail-closed.log",
+      "flags": [],
+      "capabilities": [
+        "0070"
+      ],
+      "selected_by": [
+        "family family-compaction (guard of verify-codex-compaction-chain-fail-closed.ts)",
+        "family family-compaction (covers of verify-codex-compaction-chain-fail-closed.ts)"
+      ],
+      "gate_sha256": "a8306aa5ababa93ca251926f18ceda7fba94cc1929a08f40581aeb6fda3629bb",
+      "started": "2026-11-10T05:22:37.759+00:00",
+      "finished": "2026-11-10T05:22:39.377+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-compaction-cache-liveness.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.82,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-compaction-cache-liveness.log",
+      "flags": [],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "family family-compaction (guard of verify-compaction-cache-liveness.ts)",
+        "family family-compaction (covers of verify-compaction-cache-liveness.ts)"
+      ],
+      "gate_sha256": "002870d44eb769da7486bb83472bff30a230716d5e3cceca4b128f8c7373f7f1",
+      "started": "2026-11-10T05:22:39.382+00:00",
+      "finished": "2026-11-10T05:22:40.198+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.32,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-compaction-live-chain-midnight.log",
+      "flags": [],
+      "capabilities": [
+        "0035"
+      ],
+      "selected_by": [
+        "family family-compaction (guard of verify-compaction-live-chain-midnight.ts)"
+      ],
+      "gate_sha256": "375ffc0bb2b44e36e3a828460376b0ea96050e7e45eb9009900c3a0f6bdbf4f7",
+      "started": "2026-11-10T05:22:40.206+00:00",
+      "finished": "2026-11-10T05:22:42.523+00:00"
+    },
+    {
+      "receipt": "family",
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "status": "FAIL",
+      "exit": 1,
+      "seconds": 6.51,
+      "log": "/var/tmp/omp-18186/r4-gates/logs/verify-anthropic-threads-warm-compaction-isolation.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "family family-compaction (guard of verify-anthropic-threads-warm-compaction-isolation.ts)"
+      ],
+      "gate_sha256": "79daebce7f78e00ce3d161fd65036499902d45eaf396994e8fffcce74d032677",
+      "started": "2026-11-10T05:22:42.524+00:00",
+      "finished": "2026-11-10T05:22:49.038+00:00",
+      "work_dir": "/var/tmp/omp-18186/r4-gates/work/verify-anthropic-threads-warm-compaction-isolation"
+    },
+    {
+      "receipt": "seams",
+      "gate": "verify-compaction-length-stop.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.57,
+      "log": "/var/tmp/omp-18186/r4-seam-gates-registered/logs/verify-compaction-length-stop.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "b2838f493a2fee6eef72f5b50f965826f20f83449ed4b17bcba7e6a27c08285a",
+      "started": "2026-11-10T05:23:52.044+00:00",
+      "finished": "2026-11-10T05:23:52.612+00:00"
+    },
+    {
+      "receipt": "policy",
+      "gate": "verify-remote-compaction-target-key.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 16.59,
+      "log": "/var/tmp/omp-18186/r4-policy-final/logs/verify-remote-compaction-target-key.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "--gates"
+      ],
+      "gate_sha256": "8f83acf0bfff06924ffa55631a45f8daab445fafae59adedc6202d76db29e7b9",
+      "started": "2026-11-10T05:31:22.554+00:00",
+      "finished": "2026-11-10T05:31:39.148+00:00"
+    },
+    {
+      "receipt": "faults",
+      "gate": "verify-codex-compaction-chain-fail-closed-faults.sh",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 11.64,
+      "log": "/var/tmp/omp-18186/r4-faults/logs/verify-codex-compaction-chain-fail-closed-faults.log",
+      "flags": [],
+      "capabilities": [
+        "0070"
+      ],
+      "selected_by": [
+        "explicit R4 assignment; not in apply.sh menu"
+      ],
+      "gate_sha256": "5ea3b486d17d879990c562f4ae99ab41da250a5f088a189b6b5aeca0dc6300ad",
+      "started": "2026-11-10T05:27:06.306+00:00",
+      "finished": "2026-11-10T05:27:17.944+00:00"
+    }
+  ],
+  "later_family_proof": {
+    "historical_full_batch": [
+      {
+        "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+        "status": "PASS",
+        "exit": 0,
+        "seconds": 2.44,
+        "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-threads-warm-compaction-isolation.log",
+        "flags": [
+          "tree"
+        ],
+        "capabilities": [
+          "0088"
+        ],
+        "selected_by": [
+          "full menu"
+        ],
+        "gate_sha256": "7ec70435534b1e7fba1ff027a2b4ccbd1b1a37813aba040d59d2d778a744539f",
+        "started": "2026-11-08T05:36:18.027+00:00",
+        "finished": "2026-11-08T05:36:20.466+00:00"
+      }
+    ],
+    "authored_by": "0092-omp-cache-warming-idle-budget",
+    "historical_patch_lines": [
+      618,
+      619,
+      620
+    ],
+    "missing_behaviour": "Anthropic CacheWarmer replayOptions.statefulResponses = false"
+  },
+  "summary_only_triage": {
+    "triage_only": true,
+    "selected_legs": "main-anchor,summary-history,summary-short,summary-split,summary-anchor,summary-retry,openai-chaining,summary-native",
+    "full_gate_status": "FAIL: missing later-family 0092 warm replay opt-out",
+    "runtime_before": "845e8c424247d757a21add0a04e6dfbf1bcba189047afc4d0f30dc9c02025f98",
+    "runtime_after": "845e8c424247d757a21add0a04e6dfbf1bcba189047afc4d0f30dc9c02025f98",
+    "unchanged": true,
+    "entries": 17356,
+    "result": {
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.82,
+      "log": "/var/tmp/omp-18186/r4-isolation-summary-triage/logs/verify-anthropic-threads-warm-compaction-isolation.log",
+      "flags": [],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "R4 summary-only triage; full gate remains red on later 0092 warm replay"
+      ],
+      "gate_sha256": "79daebce7f78e00ce3d161fd65036499902d45eaf396994e8fffcce74d032677",
+      "started": "2026-11-10T05:32:21.964+00:00",
+      "finished": "2026-11-10T05:32:22.780+00:00"
+    }
+  },
+  "receipts": {
+    "family": "/var/tmp/omp-18186/r4-gates/receipt.json",
+    "seams": "/var/tmp/omp-18186/r4-seam-gates-registered/receipt.json",
+    "policy": "/var/tmp/omp-18186/r4-policy-final/receipt.json",
+    "faults": "/var/tmp/omp-18186/r4-faults/receipt.json"
+  }
+}

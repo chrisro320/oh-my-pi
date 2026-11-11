@@ -1,0 +1,919 @@
+{
+  "status": "candidate-exported-unverified",
+  "behavioral_checks_run": false,
+  "candidate": "/var/tmp/omp-18186/rebase/work",
+  "candidate_tree_sha256": "2f8258e8a984348508905be276ef266069eec6ccc1cb7f3d984835f626e12245",
+  "pristine_tree_sha256": "5ebdf4f495826c380c9e7fc46ce4f059f460afdac3bcdccff34a1c46d7b9f4da",
+  "family_count": 23,
+  "local_capability_count": 46,
+  "upstream_adoptions": [
+    {
+      "capability": "0017",
+      "family": "0017-omp-openai-responses-native-replay-warm",
+      "contract": "Ordinary self-contained native replay is warm; connection-bound native history still requires warming.",
+      "source": "pi-ai/src/providers/openai-responses.ts"
+    },
+    {
+      "capability": "0078",
+      "family": "family-image-display",
+      "contract": "Python producer emits exactly one PNG-preferred image with JPEG fallback; real producer and two negative controls passed.",
+      "source": "pi-coding-agent/src/eval/py/runner.py",
+      "evidence": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md"
+    },
+    {
+      "capability": "0066",
+      "family": "family-compaction",
+      "source": "pi-agent-core/src/compaction/compaction.ts",
+      "evidence": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+      "contract": "The Anthropic native compaction request carries the live system prompt, wire tools and transformed history via buildProviderContext; the remoteSystemPrompt + summaryOptions.tools fallback stays."
+    },
+    {
+      "capability": "0072",
+      "family": "0072-omp-session-pin-static-auth-ui",
+      "source": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "evidence": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+      "contract": "The /session pin auth UI loads without a synchronous require of @oh-my-pi auth modules (upstream async loaders since 18.14.0)."
+    },
+    {
+      "capability": "0079",
+      "family": "family-image-display",
+      "source": "pi-tui/src/chat/tool-execution.ts",
+      "evidence": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+      "contract": "A sealed tool result is not retired while its Kitty image conversion is pending (upstream isTranscriptBlockPending barrier)."
+    },
+    {
+      "capability": "0062",
+      "family": "family-image-budget-snapcompact",
+      "source": "pi-coding-agent/src/session/session-maintenance.ts",
+      "evidence": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+      "contract": "A second snapcompact pass is admitted when its priced frames reduce context: upstream credits the standing compaction summary in the reduction baseline and prices frames per reader billing rule."
+    },
+    {
+      "capability": "0038",
+      "family": "family-persistent-prefix-resume",
+      "source": "pi-coding-agent/src/session/date-cwd-reminder.ts",
+      "evidence": ".retired/11-09-0038-upstream-adopted/consumer-proof-0038.md",
+      "contract": "The date/cwd reminder is a journaled placement on the message chain (createSessionDateCwdReminderJournal/renderDateCwdReminder in upstream 18.18.6), so the provider-facing messages[0] stays byte-identical across resume, branch, fork, transfer and subagent revival with the clock moved one day; no local provider tail remains."
+    }
+  ],
+  "generation": "Ordered merge-file proposals, explicit target API conflict resolutions, accept snapshots, real diff -u before/after export; no behavioral verification.",
+  "owners": [
+    {
+      "id": "family-status-accounting",
+      "capabilities": [
+        "0033",
+        "0081"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/dist/types/status-line/schema.d.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-tui/src/status-line/schema.ts",
+        "pi-tui/src/status-line/segments.ts",
+        "pi-tui/src/status-line/startup.ts",
+        "pi-coding-agent/src/thread/remote-agent-session.ts",
+        "pi-coding-agent/src/session/agent-session-handle.ts",
+        "pi-coding-agent/dist/types/session/agent-session-handle.d.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/dist/types/status-line/schema.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-handle.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-tui/src/status-line/schema.ts",
+        "pi-tui/src/status-line/segments.ts",
+        "pi-tui/src/status-line/startup.ts",
+        "pi-coding-agent/src/thread/remote-agent-session.ts",
+        "pi-coding-agent/src/session/agent-session-handle.ts"
+      ],
+      "sha256": "78e9f0b1e7047b8446a264535d0179f62132e3abe63dd84dbc1bede687e3a9a0"
+    },
+    {
+      "id": "family-hindsight",
+      "capabilities": [
+        "0034",
+        "0075"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/hindsight/state.d.ts",
+        "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts",
+        "pi-coding-agent/dist/types/session/session-memory.d.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts",
+        "pi-coding-agent/src/hindsight/backend.ts",
+        "pi-coding-agent/src/hindsight/state.ts",
+        "pi-coding-agent/src/memory-backend/recall-entry.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/session-memory.ts",
+        "pi-coding-agent/src/session/session-tools.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/hindsight/state.d.ts",
+        "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts",
+        "pi-coding-agent/dist/types/session/session-memory.d.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/hindsight/backend.ts",
+        "pi-coding-agent/src/hindsight/state.ts",
+        "pi-coding-agent/src/memory-backend/recall-entry.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/session-memory.ts",
+        "pi-coding-agent/src/session/session-tools.ts"
+      ],
+      "sha256": "f8798b53131717ee6b467803a0f71993e0975707976f9a7c3c4ca2af59b25002"
+    },
+    {
+      "id": "family-usage-pipeline",
+      "capabilities": [
+        "0037",
+        "0026",
+        "0030",
+        "0031"
+      ],
+      "paths": [
+        "pi-ai/dist/types/auth-broker/client.d.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/src/auth-broker/client.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth-broker/server.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/modes/status-line-host.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/src/status-line/component.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-coding-agent/src/thread/session-mirror.ts",
+        "pi-coding-agent/src/thread/session-publisher.ts",
+        "pi-coding-agent/src/thread/remote-agent-session.ts",
+        "pi-coding-agent/src/session/agent-session-handle.ts",
+        "pi-coding-agent/src/thread/services/auth-protocol.ts",
+        "pi-coding-agent/src/thread/services/auth-remote.ts",
+        "pi-coding-agent/src/thread/services/auth.ts",
+        "pi-coding-agent/dist/types/session/agent-session-handle.d.ts",
+        "pi-coding-agent/dist/types/thread/session-mirror.d.ts",
+        "pi-coding-agent/dist/types/thread/remote-agent-session.d.ts",
+        "pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/auth-broker/client.d.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-handle.d.ts",
+        "pi-coding-agent/dist/types/thread/session-mirror.d.ts",
+        "pi-coding-agent/dist/types/thread/remote-agent-session.d.ts",
+        "pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/auth-broker/client.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth-broker/server.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-coding-agent/src/modes/status-line-host.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/src/status-line/component.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-coding-agent/src/thread/session-mirror.ts",
+        "pi-coding-agent/src/thread/session-publisher.ts",
+        "pi-coding-agent/src/thread/remote-agent-session.ts",
+        "pi-coding-agent/src/session/agent-session-handle.ts",
+        "pi-coding-agent/src/thread/services/auth-protocol.ts",
+        "pi-coding-agent/src/thread/services/auth-remote.ts",
+        "pi-coding-agent/src/thread/services/auth.ts"
+      ],
+      "sha256": "297e2c3febfe35ed981d2b6ae006940b3045bbdd1b1de45fb5f4641e809957f1"
+    },
+    {
+      "id": "0010-omp-extension-idle-ephemeral-turn",
+      "capabilities": [
+        "0010"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts"
+      ],
+      "sha256": "af23b4ca46a8eb5db84f4028645d28936e08131a9687dff5d8b1a3baaa11f5d0"
+    },
+    {
+      "id": "family-image-budget-snapcompact",
+      "capabilities": [
+        "0044",
+        "0057"
+      ],
+      "paths": [
+        "pi-catalog/src/compat/rules/providers/image-budget.kdl",
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/providers/devin.kdl"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-catalog/src/compat/rules/providers/image-budget.kdl",
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/providers/devin.kdl"
+      ],
+      "sha256": "6604b377d2c3f058449e8c9b7b860271f6da15adae68db6747382e5a45b187f2"
+    },
+    {
+      "id": "family-persistent-prefix-resume",
+      "capabilities": [
+        "0043",
+        "0047",
+        "0076",
+        "0077",
+        "0083",
+        "0084",
+        "0093"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/messages.d.ts",
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/dist/types/session/session-storage.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer.d.ts",
+        "pi-coding-agent/dist/types/session/turn-recovery.d.ts",
+        "pi-coding-agent/src/collab/guest.ts",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/model-controls.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-coding-agent/src/session/session-storage.ts",
+        "pi-coding-agent/src/session/session-tools.ts",
+        "pi-coding-agent/src/session/session-transfer-marker.ts",
+        "pi-coding-agent/src/session/session-transfer.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts",
+        "pi-tui/src/thinking.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts",
+        "pi-coding-agent/src/tools/index.ts",
+        "pi-coding-agent/dist/types/tools/index.d.ts",
+        "pi-coding-agent/src/task/index.ts",
+        "pi-coding-agent/src/tools/eval.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/messages.d.ts",
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/dist/types/session/session-storage.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer.d.ts",
+        "pi-coding-agent/dist/types/session/turn-recovery.d.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts",
+        "pi-coding-agent/dist/types/tools/index.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/collab/guest.ts",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/model-controls.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-coding-agent/src/session/session-storage.ts",
+        "pi-coding-agent/src/session/session-tools.ts",
+        "pi-coding-agent/src/session/session-transfer-marker.ts",
+        "pi-coding-agent/src/session/session-transfer.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts",
+        "pi-tui/src/thinking.ts",
+        "pi-coding-agent/src/tools/index.ts",
+        "pi-coding-agent/src/task/index.ts",
+        "pi-coding-agent/src/tools/eval.ts"
+      ],
+      "sha256": "4f9fe18f76c388d954f002d1be4e13e7ca9aa3f46bc69a4c44d879f19b33d3d4"
+    },
+    {
+      "id": "0046-omp-supersede-warm-prefix-guard",
+      "capabilities": [
+        "0046"
+      ],
+      "paths": [
+        "pi-coding-agent/src/session/session-maintenance.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-coding-agent/src/session/session-maintenance.ts"
+      ],
+      "sha256": "c6f28296ffec660e2103942321db4e6734cce0cad8b79a6653ea3057a48d44f2"
+    },
+    {
+      "id": "0050-omp-session-history-preview",
+      "capabilities": [
+        "0050"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/session/session-listing.d.ts",
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-tui/dist/types/overlays/session-selector.d.ts",
+        "pi-tui/src/overlays/session-info-overlay.ts",
+        "pi-tui/src/overlays/session-selector.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/session/session-listing.d.ts",
+        "pi-tui/dist/types/overlays/session-selector.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-tui/src/overlays/session-info-overlay.ts",
+        "pi-tui/src/overlays/session-selector.ts"
+      ],
+      "sha256": "346bc7f775f2d92ad3256940d39d1df544ad3e37a770abd81c14762d6f7966a7"
+    },
+    {
+      "id": "family-devin-wire",
+      "capabilities": [
+        "0055",
+        "0056",
+        "0058",
+        "0060"
+      ],
+      "paths": [
+        "pi-ai/dist/types/stream.d.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/devin.ts",
+        "pi-ai/src/stream.ts",
+        "pi-ai/src/types.ts",
+        "pi-catalog/dist/types/wire/devin.d.ts",
+        "pi-catalog/src/wire/devin.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/stream.d.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-catalog/dist/types/wire/devin.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/providers/devin.ts",
+        "pi-ai/src/stream.ts",
+        "pi-ai/src/types.ts",
+        "pi-catalog/src/wire/devin.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts"
+      ],
+      "sha256": "96f6634a5446dcd81451b3a1458ccb1cb7a16f4443bed9ca58cf9c33eab2a08a"
+    },
+    {
+      "id": "0069-omp-codex-effort-history-resume",
+      "capabilities": [
+        "0069"
+      ],
+      "paths": [
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-ai/src/types.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/types.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-ai/src/types.ts"
+      ],
+      "sha256": "bd3c8dc0b1a1c4ca744dc9cbbdfc4276b056d70abbbf8e88889da2ac2e18fa74"
+    },
+    {
+      "id": "0074-omp-anthropic-context-cache-boundaries",
+      "capabilities": [
+        "0074"
+      ],
+      "paths": [
+        "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+        "pi-ai/src/providers/anthropic-request-audit.ts",
+        "pi-ai/src/providers/anthropic-images.ts",
+        "pi-ai/src/providers/anthropic.ts",
+        "pi-ai/dist/types/providers/anthropic.d.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+        "pi-ai/dist/types/providers/anthropic.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/providers/anthropic-request-audit.ts",
+        "pi-ai/src/providers/anthropic-images.ts",
+        "pi-ai/src/providers/anthropic.ts"
+      ],
+      "sha256": "d48c4dfce00f372a57d56a1cc4056142c5a0e56c0590b2f44cfcc9aac3ead9e4"
+    },
+    {
+      "id": "family-image-display",
+      "capabilities": [
+        "0080"
+      ],
+      "paths": [
+        "pi-tui/dist/types/chat/image-loading.d.ts",
+        "pi-tui/src/chat/assistant-message.ts",
+        "pi-tui/src/chat/image-loading.ts",
+        "pi-tui/src/chat/tool-execution.ts"
+      ],
+      "declarations": [
+        "pi-tui/dist/types/chat/image-loading.d.ts"
+      ],
+      "source": [
+        "pi-tui/src/chat/assistant-message.ts",
+        "pi-tui/src/chat/image-loading.ts",
+        "pi-tui/src/chat/tool-execution.ts"
+      ],
+      "sha256": "993e8ff3514c7db18bdc3307152277bf7a3b4abd1f96ba39ef37ba18e29ff97c"
+    },
+    {
+      "id": "family-input-translation",
+      "capabilities": [
+        "0082",
+        "0085"
+      ],
+      "paths": [
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-agent-core/src/agent.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/messages.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/types.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/main.d.ts",
+        "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+        "pi-coding-agent/dist/types/modes/types.d.ts",
+        "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+        "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+        "pi-coding-agent/src/export/share.ts",
+        "pi-coding-agent/src/extensibility/extensions/loader.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/controllers/input-controller.ts",
+        "pi-coding-agent/src/modes/interactive-mode.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/modes/types.ts",
+        "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/queued-messages.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-dump-format.ts",
+        "pi-coding-agent/src/session/session-history-format.ts",
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-coding-agent/src/slash-commands/helpers/draft.ts",
+        "pi-tui/dist/types/chat/transcript-entry.d.ts",
+        "pi-tui/src/chat/chat-transcript-builder.ts",
+        "pi-tui/src/chat/transcript-entry.ts",
+        "pi-tui/src/chat/transcript-outline.ts",
+        "pi-tui/src/overlays/copy-selector.ts",
+        "pi-tui/src/overlays/hook-input.ts",
+        "pi-tui/src/overlays/tree-selector.ts"
+      ],
+      "declarations": [
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/main.d.ts",
+        "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+        "pi-coding-agent/dist/types/modes/types.d.ts",
+        "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+        "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+        "pi-tui/dist/types/chat/transcript-entry.d.ts"
+      ],
+      "source": [
+        "pi-agent-core/src/agent.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/messages.ts",
+        "pi-ai/src/types.ts",
+        "pi-coding-agent/src/export/share.ts",
+        "pi-coding-agent/src/extensibility/extensions/loader.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/controllers/input-controller.ts",
+        "pi-coding-agent/src/modes/interactive-mode.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/modes/types.ts",
+        "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/queued-messages.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-dump-format.ts",
+        "pi-coding-agent/src/session/session-history-format.ts",
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-coding-agent/src/slash-commands/helpers/draft.ts",
+        "pi-tui/src/chat/chat-transcript-builder.ts",
+        "pi-tui/src/chat/transcript-entry.ts",
+        "pi-tui/src/chat/transcript-outline.ts",
+        "pi-tui/src/overlays/copy-selector.ts",
+        "pi-tui/src/overlays/hook-input.ts",
+        "pi-tui/src/overlays/tree-selector.ts"
+      ],
+      "sha256": "a647defa2645318b7d419fe74254f4f082a8e9a4deebcc9942fe86db59a9efbc"
+    },
+    {
+      "id": "family-compaction",
+      "capabilities": [
+        "0035",
+        "0063",
+        "0067",
+        "0068",
+        "0070",
+        "0088",
+        "0089",
+        "0096"
+      ],
+      "paths": [
+        "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-agent-core/src/compaction/anthropic.ts",
+        "pi-agent-core/src/compaction/compaction-trace.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+        "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+        "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/context-notes.d.ts",
+        "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+        "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+        "pi-coding-agent/src/prompts/system/context-notes.md",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/context-notes.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-provider-boundary.ts",
+        "pi-coding-agent/src/task/executor.ts",
+        "pi-ai/src/providers/openai-codex-state.ts",
+        "pi-ai/src/providers/responses-websocket-connection.ts",
+        "pi-ai/dist/types/providers/responses-websocket-connection.d.ts",
+        "pi-agent-core/src/telemetry.ts"
+      ],
+      "declarations": [
+        "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/context-notes.d.ts",
+        "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+        "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+        "pi-ai/dist/types/providers/responses-websocket-connection.d.ts"
+      ],
+      "source": [
+        "pi-agent-core/src/compaction/anthropic.ts",
+        "pi-agent-core/src/compaction/compaction-trace.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+        "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+        "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-coding-agent/src/prompts/system/context-notes.md",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/context-notes.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-provider-boundary.ts",
+        "pi-coding-agent/src/task/executor.ts",
+        "pi-ai/src/providers/openai-codex-state.ts",
+        "pi-ai/src/providers/responses-websocket-connection.ts",
+        "pi-agent-core/src/telemetry.ts"
+      ],
+      "sha256": "2bce4e2a77311346bbdd06ba4b14e88efc0de5445564a120675912ed6d65df30"
+    },
+    {
+      "id": "0090-omp-oauth-durable-refresh",
+      "capabilities": [
+        "0090"
+      ],
+      "paths": [
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/oauth.d.ts",
+        "pi-ai/dist/types/auth/pool.d.ts",
+        "pi-ai/dist/types/auth/refresh.d.ts",
+        "pi-ai/dist/types/auth/sqlite-credential-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth/health.ts",
+        "pi-ai/src/auth/oauth.ts",
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/auth/sqlite-credential-store.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/registry/engine/refresh.ts",
+        "pi-ai/src/registry/oauth/anthropic.ts",
+        "pi-ai/src/registry/oauth/factory-droid.ts",
+        "pi-ai/src/registry/oauth/snowflake.ts",
+        "pi-catalog/dist/types/model-manager.d.ts",
+        "pi-catalog/src/model-manager.ts",
+        "pi-catalog/src/provider-models/google.ts",
+        "pi-catalog/src/provider-models/special.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/src/overlays/mcp-add-wizard.ts",
+        "pi-ai/dist/types/error/oauth.d.ts",
+        "pi-ai/src/error/oauth.ts",
+        "pi-ai/src/registry/engine/common.ts",
+        "pi-coding-agent/src/thread/services/auth-protocol.ts",
+        "pi-coding-agent/src/thread/services/auth.ts",
+        "pi-coding-agent/src/thread/services/auth-remote.ts",
+        "pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/oauth.d.ts",
+        "pi-ai/dist/types/auth/pool.d.ts",
+        "pi-ai/dist/types/auth/refresh.d.ts",
+        "pi-ai/dist/types/auth/sqlite-credential-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+        "pi-catalog/dist/types/model-manager.d.ts",
+        "pi-ai/dist/types/error/oauth.d.ts",
+        "pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth/health.ts",
+        "pi-ai/src/auth/oauth.ts",
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/auth/sqlite-credential-store.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/registry/engine/refresh.ts",
+        "pi-ai/src/registry/oauth/anthropic.ts",
+        "pi-ai/src/registry/oauth/factory-droid.ts",
+        "pi-ai/src/registry/oauth/snowflake.ts",
+        "pi-catalog/src/model-manager.ts",
+        "pi-catalog/src/provider-models/google.ts",
+        "pi-catalog/src/provider-models/special.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/src/overlays/mcp-add-wizard.ts",
+        "pi-ai/src/error/oauth.ts",
+        "pi-ai/src/registry/engine/common.ts",
+        "pi-coding-agent/src/thread/services/auth-protocol.ts",
+        "pi-coding-agent/src/thread/services/auth.ts",
+        "pi-coding-agent/src/thread/services/auth-remote.ts"
+      ],
+      "sha256": "60e92e98b818648a25659763340c86fe3567077a11cd9255ccf5dbf713cb396a"
+    },
+    {
+      "id": "0092-omp-cache-warming-idle-budget",
+      "capabilities": [
+        "0092"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/cache-warmer.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/cache-warmer.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts"
+      ],
+      "sha256": "74b5aca765cc4200659343325c8de88c3781910e8cf3dac11a579c774f1668fa"
+    },
+    {
+      "id": "0094-omp-anthropic-thinking-drop-resume",
+      "capabilities": [
+        "0094"
+      ],
+      "paths": [
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/anthropic.ts",
+        "pi-ai/src/types.ts",
+        "pi-ai/src/judgment/chat.ts"
+      ],
+      "declarations": [
+        "pi-ai/dist/types/types.d.ts"
+      ],
+      "source": [
+        "pi-ai/src/providers/anthropic.ts",
+        "pi-ai/src/types.ts",
+        "pi-ai/src/judgment/chat.ts"
+      ],
+      "sha256": "b6e5173430e0611f08f5ac2e813885d5a38287b4fa9674a315dfdb0df347a5a8"
+    },
+    {
+      "id": "0095-omp-context-audit-request-purpose",
+      "capabilities": [
+        "0095"
+      ],
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/hooks/runner.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/edit/auto-repair.ts",
+        "pi-coding-agent/src/memories/index.ts",
+        "pi-coding-agent/src/mnemopi/backend.ts",
+        "pi-coding-agent/src/sharpshooter/extract.ts",
+        "pi-coding-agent/src/sharpshooter/consolidate.ts",
+        "pi-coding-agent/src/utils/title-generator.ts",
+        "pi-coding-agent/src/utils/commit-message-generator.ts",
+        "pi-coding-agent/src/commit/changelog/generate.ts",
+        "pi-coding-agent/src/commit/conventional/inference.ts",
+        "pi-coding-agent/src/extensibility/custom-commands/bundled/annotate/text-summary.ts",
+        "pi-coding-agent/src/tts/speech-enhancer.ts"
+      ],
+      "declarations": [
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts"
+      ],
+      "source": [
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/hooks/runner.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/edit/auto-repair.ts",
+        "pi-coding-agent/src/memories/index.ts",
+        "pi-coding-agent/src/mnemopi/backend.ts",
+        "pi-coding-agent/src/sharpshooter/extract.ts",
+        "pi-coding-agent/src/sharpshooter/consolidate.ts",
+        "pi-coding-agent/src/utils/title-generator.ts",
+        "pi-coding-agent/src/utils/commit-message-generator.ts",
+        "pi-coding-agent/src/commit/changelog/generate.ts",
+        "pi-coding-agent/src/commit/conventional/inference.ts",
+        "pi-coding-agent/src/extensibility/custom-commands/bundled/annotate/text-summary.ts",
+        "pi-coding-agent/src/tts/speech-enhancer.ts"
+      ],
+      "sha256": "d46018de157956a5cfa400c0b9554b2698b257d16e7d404d6de73cc0ccbc61e9"
+    },
+    {
+      "id": "0098-omp-tls-verify-transient-retry",
+      "capabilities": [
+        "0098"
+      ],
+      "paths": [
+        "pi-ai/src/error/flags.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-ai/src/error/flags.ts"
+      ],
+      "sha256": "b0c17e6b54cb66b7952ad3e5844641260ab22e9ea4aa4b383544af297b9af03d"
+    },
+    {
+      "id": "0099-omp-retry-slow-schedule",
+      "capabilities": [
+        "0099"
+      ],
+      "paths": [
+        "pi-coding-agent/src/session/retry-fallback-chains.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-coding-agent/src/session/retry-fallback-chains.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts"
+      ],
+      "sha256": "4014a87a5ae55cf5249440e5982fb821332c110606c85796c6a4219831487ee9"
+    },
+    {
+      "id": "0101-omp-subagent-warm-revival-persisted-prompt",
+      "capabilities": [
+        "0101"
+      ],
+      "paths": [
+        "pi-coding-agent/src/task/executor.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-coding-agent/src/task/executor.ts"
+      ],
+      "sha256": "bf46a7e75c0df0ae523709202c92ed09c8825cc0465f6232b09734744b5a4c86"
+    },
+    {
+      "id": "0102-omp-computer-control-confirm-deadline",
+      "capabilities": [
+        "0102"
+      ],
+      "paths": [
+        "pi-coding-agent/src/tools/computer/supervisor.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-coding-agent/src/tools/computer/supervisor.ts"
+      ],
+      "sha256": "e221bf5f82c8edde2dc101e322c57c6e6971fb78f795e9e2e9af352be69aa83b"
+    },
+    {
+      "id": "0103-omp-advisor-tools-done-visible",
+      "capabilities": [
+        "0103"
+      ],
+      "paths": [
+        "pi-tui/src/overlays/advisor-config.ts"
+      ],
+      "declarations": [],
+      "source": [
+        "pi-tui/src/overlays/advisor-config.ts"
+      ],
+      "sha256": "ad7969d2a71571a63fc91e5105ff41b43e640cda1727cdc04cae5a824cbbe9a4"
+    }
+  ]
+}

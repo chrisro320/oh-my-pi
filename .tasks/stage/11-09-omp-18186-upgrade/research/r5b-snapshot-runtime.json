@@ -1,0 +1,26 @@
+{
+  "pi-ai": {
+    "source": "1fde57576d9d61ad8713488e7177eef1e2d3b2d8949588fd6b0e27dee455c539",
+    "runtime": "1fde57576d9d61ad8713488e7177eef1e2d3b2d8949588fd6b0e27dee455c539"
+  },
+  "pi-agent-core": {
+    "source": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1",
+    "runtime": "a50360b179797076ae7dc3d1eba70a9f6e4aafe3f3613701f85d5014abc4b3b1"
+  },
+  "pi-coding-agent": {
+    "source": "dd6c1f1de806497571328653bb1b522b8e7167c39226aa24a56752a269474fa9",
+    "runtime": "dd6c1f1de806497571328653bb1b522b8e7167c39226aa24a56752a269474fa9"
+  },
+  "pi-tui": {
+    "source": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359",
+    "runtime": "6251724a70c7257c9d3f085ac217e4961328fc1a99466d6f326a231f99a29359"
+  },
+  "pi-catalog": {
+    "source": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d",
+    "runtime": "e9243ce873b746ce8f6ded3e14a1f2fac04c041fa8f9236bc8d779751425906d"
+  },
+  "snapcompact": {
+    "source": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84",
+    "runtime": "7ebb25387cc80e5d9a6f31a772be474fdd9dd66bb301e92c4b74b0d20509ba84"
+  }
+}
