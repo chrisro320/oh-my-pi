@@ -1008,6 +1008,41 @@ function allocatedConversation(userTurns: number, trailingRole: "user" | "assist
 	);
 	assert.equal(anthropic.system[0].text, resumed, "normalization must not mutate the original Anthropic system text");
 	assert.equal(anthropicWire.system[0].text, expected, "Anthropic resume requests must normalize the system catalog");
+
+	const evalDescription = (names: string[]) =>
+		["Eval tool.", "", `Session tool names: ${names.map(name => `\`${name}\``).join(", ")}.`, "</prelude>"].join("\n");
+	const restartOrder = ["read", "lsp", "cron", "overseer_family", "api_image", "generate_image"];
+	const freshOrder = ["read", "lsp", "api_image", "generate_image", "cron", "overseer_family"];
+	const canonical = evalDescription(["api_image", "cron", "generate_image", "lsp", "overseer_family", "read"]);
+	const unrelatedTool = { name: "_read", description: "Read files.", input_schema: {} };
+	const anthropicTools = (names: string[]) => ({
+		system: [{ type: "text", text: "unrelated" }],
+		tools: [unrelatedTool, { name: "_eval", description: evalDescription(names), input_schema: { type: "object" } }],
+		messages: [],
+	});
+	const freshTools = anthropicTools(freshOrder);
+	const freshWire = (beforeRequest({ payload: freshTools }) as typeof freshTools | undefined) ?? freshTools;
+	const restartWire = (beforeRequest({ payload: anthropicTools(restartOrder) }) as typeof freshTools | undefined) ?? freshTools;
+	assert.deepEqual(restartWire.tools, freshWire.tools, "every tool registration order must yield the same tools");
+	assert.equal(freshWire.tools[1].description, canonical);
+	assert.deepEqual(freshWire.tools[1].input_schema, { type: "object" }, "tool fields other than the description must survive");
+	assert.equal(freshWire.tools[0], unrelatedTool, "unrelated tools must retain their identity");
+	assert.equal(freshTools.tools[1].description, evalDescription(freshOrder), "normalization must not mutate the original tool definition");
+	const codexTools = (names: string[]) => ({ instructions: "unrelated", tools: [{ type: "function", name: "eval", description: evalDescription(names), parameters: {} }] });
+	assert.deepEqual(beforeRequest({ payload: codexTools(restartOrder) }), beforeRequest({ payload: codexTools(freshOrder) }), "Responses tools must share one canonical description");
+	const chatTools = (names: string[]) => ({ messages: [], tools: [{ type: "function", function: { name: "eval", description: evalDescription(names), parameters: {} } }] });
+	const chatWire = beforeRequest({ payload: chatTools(restartOrder) }) as { tools: Array<{ function: { description: string } }> };
+	assert.equal(chatWire.tools[0].function.description, canonical, "chat-completions function descriptions must be canonical too");
+	for (const description of [
+		evalDescription(["read", "read"]),
+		`${evalDescription(restartOrder)}\n${evalDescription(freshOrder)}`,
+		"Session tool names: read, bash.",
+		"Example: Session tool names: `b`, `a`.",
+	]) {
+		const payload = { messages: [], tools: [{ name: "_eval", description }] };
+		assert.equal(beforeRequest({ payload }), undefined, "ambiguous or non-native tool-name lists must not be rewritten");
+	}
+	console.log("ok session tool names: registration order no longer changes the tools prefix");
 	console.log("ok xd catalog: deterministic Codex and Anthropic prompts preserve other content and Anthropic anchors");
 }
 
@@ -1083,6 +1118,14 @@ if (EXTENSION === SHIPPED) {
 				from: "system[index] = { ...block, text };",
 				to: 'system[index] = { type: "text", text };',
 				expect: /system cache markers must survive catalog normalization/,
+			},
+			{
+				// The eval description keeps registration order: a restart whose
+				// extensions finish loading in another order rewrites the tools prefix.
+				name: "leaves the session tool names in registration order",
+				from: "[...names].sort().join",
+				to: "names.join",
+				expect: /every tool registration order must yield the same tools/,
 			},
 		];
 		for (const mutation of mutations) {

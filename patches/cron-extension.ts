@@ -23,12 +23,6 @@ interface StatusTheme {
 	fg(color: Parameters<ExtensionCommandContext["ui"]["theme"]["fg"]>[0], text: string): string;
 }
 
-interface CronToolParams {
-	action: "status" | "enable" | "disable";
-	every?: string;
-	runs?: number;
-}
-
 type KeepaliveOutcome = "skipped" | "cache-hit" | "cache-miss" | "provider-error";
 
 interface KeepaliveResult {
@@ -442,14 +436,9 @@ export default function (pi: ExtensionAPI): void {
 		return lines.filter(Boolean).join("\n");
 	};
 
-	const enable = (ctx: ExtensionContext, every: string | undefined, runs?: number): string => {
-		if (!every) return "error: `enable` requires `every` (for example 3m or 10m)";
+	const enable = (ctx: ExtensionContext, every: string, budget: number): string => {
 		const parsed = parseDuration(every);
 		if ("error" in parsed) return `error: ${parsed.error}`;
-		const budget = runs ?? 1;
-		if (!Number.isInteger(budget) || budget < 1 || budget > 100) {
-			return "error: `runs` must be an integer from 1 through 100";
-		}
 		if (!ctx.model) return "error: no active model on this session";
 		clearKeep();
 		state.enabled = true;
@@ -489,42 +478,6 @@ export default function (pi: ExtensionAPI): void {
 		process.env[IDLE_WARMING_ENV] = String(parsed.keepMs);
 		return formatStatus(PLAIN_THEME);
 	};
-
-	const z = pi.zod;
-	pi.registerTool({
-		name: "cron",
-		label: "Session Cache Keepalive",
-		approval: "write",
-		description:
-			"Manage the current session's prompt-cache keepalive. It sends one invisible LLM side-channel request after the session has been idle for the user-supplied interval, then disables; pass runs (1-100) for a bounded repeat. The setting is disabled by default, exists only in this live process, and is lost on session switch, branch, or exit. Minimum interval: 3m.",
-		parameters: z.object({
-			action: z.enum(["status", "enable", "disable"]).describe("Operation to perform"),
-			every: z.string().optional().describe('Required for enable, for example "3m", "10m", or "2h"'),
-			runs: z
-				.number()
-				.int()
-				.min(1)
-				.max(100)
-				.optional()
-				.describe("Bounded keepalive attempts for enable; defaults to 1, maximum 100"),
-		}),
-		async execute(_toolCallId, params: CronToolParams, _signal, _onUpdate, ctx) {
-			let text: string;
-			switch (params.action) {
-				case "status":
-					text = formatStatus(PLAIN_THEME);
-					break;
-				case "enable":
-					text = enable(ctx, params.every, params.runs);
-					break;
-				case "disable":
-					disable(ctx);
-					text = formatStatus(PLAIN_THEME);
-					break;
-			}
-			return { content: [{ type: "text" as const, text }], details: { action: params.action } };
-		},
-	});
 
 	pi.registerCommand("cron", {
 		description:

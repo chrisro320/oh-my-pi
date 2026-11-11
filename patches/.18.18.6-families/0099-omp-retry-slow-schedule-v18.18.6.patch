@@ -1,0 +1,84 @@
+--- a/src/session/retry-fallback-chains.ts
++++ b/src/session/retry-fallback-chains.ts
+@@ -86,14 +86,16 @@
+ 	contextWindow?: number | null;
+ }
+ 
+-const RETRY_BACKOFF_MAX_DELAY_MS = 8_000;
+-const RETRY_BACKOFF_JITTER_RATIO = 0.25;
++/**
++ * Fixed slow retry pacing. Short exponential backoff (0.5 s doubling to 8 s)
++ * exhausts the budget inside a multi-second network/proxy outage; these steps
++ * cover about a minute. Attempts past the end reuse the last step.
++ */
++const RETRY_DELAY_SCHEDULE_MS = [3_000, 3_000, 5_000, 5_000, 10_000, 10_000, 15_000, 15_000];
+ 
+-/** Calculates capped exponential retry delay with downward jitter. */
+-export function calculateRetryBackoffDelayMs(baseDelayMs: number, attempt: number): number {
+-	const cappedDelayMs = Math.min(Math.max(0, baseDelayMs) * 2 ** Math.max(0, attempt - 1), RETRY_BACKOFF_MAX_DELAY_MS);
+-	const jitter = 1 - Math.random() * RETRY_BACKOFF_JITTER_RATIO;
+-	return cappedDelayMs * jitter;
++/** Retry delay for a 1-based attempt; `retry.baseDelayMs` no longer applies. */
++export function calculateRetryBackoffDelayMs(_baseDelayMs: number, attempt: number): number {
++	return RETRY_DELAY_SCHEDULE_MS[Math.min(Math.max(1, attempt), RETRY_DELAY_SCHEDULE_MS.length) - 1];
+ }
+ 
+ /** Parses a configured retry fallback selector. */
+--- a/src/session/turn-recovery.ts
++++ b/src/session/turn-recovery.ts
+@@ -397,6 +397,8 @@
+ 	readonly #unexpectedStopJudgeTimeoutMs: number;
+ 	#retryAbortController: AbortController | undefined;
+ 	#retryAttempt = 0;
++	/** Backoff steps are model-local; the retry budget and refusal walk remain saga-wide. */
++	#retryBackoffAttempt = 0;
+ 	#genericAbortStreak = 0;
+ 	/**
+ 	 * Selectors a classifier refusal has already moved off in the current retry saga; see the walk
+@@ -2667,8 +2669,12 @@
+ 		const classifierRefusal = this.isClassifierRefusal(message);
+ 
+ 		const generation = this.#host.promptGeneration();
+-		if (this.#retryAttempt === 0) this.#genericAbortStreak = 0;
++		if (this.#retryAttempt === 0) {
++			this.#genericAbortStreak = 0;
++			this.#retryBackoffAttempt = 0;
++		}
+ 		this.#retryAttempt++;
++		this.#retryBackoffAttempt++;
+ 		this.#genericAbortStreak =
+ 			message.errorMessage !== undefined && Object.hasOwn(GENERIC_ABORT_MESSAGES, message.errorMessage)
+ 				? this.#genericAbortStreak + 1
+@@ -2723,11 +2729,11 @@
+ 		let parsedRetryAfterMs = staleUsageLimit ? undefined : this.#parseRetryAfterMsFromError(errorMessage);
+ 		let delayMs = staleOpenAIResponsesReplayError
+ 			? 0
+-			: calculateRetryBackoffDelayMs(retrySettings.baseDelayMs, this.#retryAttempt);
++			: calculateRetryBackoffDelayMs(retrySettings.baseDelayMs, this.#retryBackoffAttempt);
+ 		// Transient rate/concurrency caps stay on the same credential, but must
+-		// honor their reason-specific windows. The default exponential base
+-		// (≈500ms, capped at 8s) otherwise re-hits the cap and burns the retry
+-		// budget before either window can clear. An explicit provider
++		// honor their reason-specific windows. The fixed slow ladder otherwise
++		// re-hits the cap and burns the retry budget before either window clears.
++		// An explicit provider
+ 		// retry-after is authoritative in both directions, so the heuristic
+ 		// window only applies when the error carries no parsed timing.
+ 		if (
+@@ -2876,7 +2882,7 @@
+ 			usageLimitWaitMs = undefined;
+ 			siblingAvailabilityWaitMs = undefined;
+ 			switchedCredential = false;
+-			delayMs = calculateRetryBackoffDelayMs(retrySettings.baseDelayMs, this.#retryAttempt);
++			delayMs = calculateRetryBackoffDelayMs(retrySettings.baseDelayMs, this.#retryBackoffAttempt);
+ 		}
+ 		const allowModelFallback = options?.allowModelFallback !== false && !this.#host.modelFallbackDisabled?.();
+ 		const currentSelector = currentModel
+@@ -3061,6 +3067,7 @@
+ 				switchedModel = await this.#tryFireworksFastFallback(currentSelector);
+ 			}
+ 			if (switchedModel) {
++				this.#retryBackoffAttempt = 0; // The selected model starts its own slow ladder.
+ 				delayMs = 0;
+ 			} else if (usageLimitWaitMs === undefined && parsedRetryAfterMs && parsedRetryAfterMs > delayMs) {
+ 				delayMs = parsedRetryAfterMs;

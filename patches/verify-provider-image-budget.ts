@@ -1,19 +1,24 @@
-// Verify 0022 + 0044: provider-image budget entries cover the zhipu/opencode/commandcode
-// routes so the 6th attached image no longer evicts the oldest one (which rewrote
-// the prefix and voided the whole prompt cache — measured 195,775-token recompute
-// on 2026-08-27, session 01a04335 turn 14:32:11 UTC).
+// Verify 0044 + 0057: provider-image budget entries cover the wire-`api`
+// families a 6th attached image would otherwise evict the oldest to (which
+// rewrote the prefix and voided the whole prompt cache — measured
+// 195,775-token recompute on 2026-08-27, session 01a04335 turn 14:32:11 UTC).
 //
-// 0044 extends the table to the wire-`api` families the 0036 rollup missed
-// (`openai-responses` above all). Measured on 2026-09-05, session 01a06d18 on
-// `gpt-6-astra` via the hand-written `pixel`/`pqh`/`wanzhao` gateways: those
-// provider ids are absent from the table and `openai-responses` was too, so
-// every request fell to the floor of 5. Each newly read image evicted the
-// oldest one *from a mid-history toolResult*, and the 12 affected turns billed
-// full input against a cacheRead pinned at 22,528 (12.1% hit, versus 98-99%
-// on the neighbouring turns).
+// 0044 gives the wire-`api` families a count cap (`openai-responses` above
+// all). Measured on 2026-09-05, session 01a06d18 on `gpt-6-astra` via the
+// hand-written `pixel`/`pqh`/`wanzhao` gateways: those provider ids are absent
+// from the catalog and `openai-responses` had no wire fallback, so every
+// request fell to the floor of 5. Each newly read image evicted the oldest one
+// *from a mid-history toolResult*, and the 12 affected turns billed full input
+// against a cacheRead pinned at 22,528 (12.1% hit, versus 98-99% on the
+// neighbouring turns).
+//
+// 0036 (opencode-go / zhipu-coding-plan budgets) and 0052 (Command Code
+// account-alias budgets) run only when the selected plan retains them.
+// 0044's wire fallbacks and 0057's Devin pair run on every registered plan.
 //
 // Run: bun patches/verify-provider-image-budget.ts   (exits 0 on success)
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -29,7 +34,16 @@ const { providerImageBudget, providerFrameBudget } = snapcompact;
 const { clampProviderContextImages } = await import(`${AGENT_ROOT}/src/session/provider-image-budget.ts`);
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const { buildModel } = await import(`${CATALOG_ROOT}/src/build.ts`);
-resolvePlan({ gate: "verify-provider-image-budget", roots: [SNAP_ROOT] });
+const plan = resolvePlan({ gate: "verify-provider-image-budget", roots: [SNAP_ROOT] });
+// Local retirements are selected by capability, not an upstream version boundary.
+const capabilityMenu = spawnSync("bash", [new URL("./apply.sh", import.meta.url).pathname, "--print-capabilities"], {
+	env: { ...process.env, OMP_PATCH_VERSION: plan.version }, encoding: "utf8",
+});
+assert.equal(capabilityMenu.status, 0, `cannot resolve plan capabilities: ${capabilityMenu.stderr}`);
+const capabilities = new Set(capabilityMenu.stdout.split(/\s+/));
+const hasProviderBudgets = capabilities.has("0036");
+const hasCommandCodeAliases = capabilities.has("0052");
+const deploymentProviders = ["devin", ...(hasProviderBudgets ? ["opencode-go", "zhipu-coding-plan"] : []), ...(hasCommandCodeAliases ? ["commandcode"] : [])];
 
 // The flat `PROVIDER_IMAGE_BUDGETS` table is retired with its releases: every
 // registered release resolves image counts from the catalog's
@@ -64,20 +78,24 @@ async function verifyCatalogBudgets(): Promise<void> {
 			assert.equal(providerFrameBudget(model), 80, `${provider}/${api}: archive frame ceiling`);
 		}
 	}
-	for (const provider of ["commandcode", "opencode-go", "zhipu-coding-plan", "commandcode-b", "commandcode-c", "commandcode_proxy", "commandcode-alt", "devin"]) {
-		assert.equal(providerImageBudget(makeModel(provider, "cursor-agent")), 200, `${provider}: gateway fallback`);
+	if (hasProviderBudgets) {
+		for (const provider of ["opencode-go", "zhipu-coding-plan"]) {
+			assert.equal(providerImageBudget(makeModel(provider, "cursor-agent")), 200, `${provider}: 0036 provider budget must rescue an unlisted adapter`);
+		}
 	}
-	assert.equal(providerImageBudget(makeModel("unknown", "commandcode-custom-b")), 200);
-	assert.equal(providerImageBudget(makeModel("commandcode-b", "anthropic-messages")), 90, "wire policy outranks alias rescue");
-	assert.equal(providerImageBudget(makeModel("commandcode-b", "openai-completions")), 200);
-	assert.equal(providerFrameBudget(makeModel("commandcode-b", "commandcode-custom-b")), 80);
+	if (hasCommandCodeAliases) {
+		assert.equal(providerImageBudget(makeModel("commandcode-b", "anthropic-messages")), 90, "0052: wire policy outranks alias rescue");
+		assert.equal(providerImageBudget(makeModel("commandcode-b", "bedrock-converse-stream")), 90, "0052: Bedrock wire policy outranks alias rescue");
+		assert.equal(providerImageBudget(makeModel("commandcode-b", "openai-completions")), 200);
+		assert.equal(providerFrameBudget(makeModel("commandcode-b", "commandcode-custom-b")), 80);
+		assert.equal(providerImageBudget(makeModel("umans", "commandcode-custom")), 10, "0052: provider policy outranks namespace rescue");
+		for (const provider of ["commandcodex", "xcommandcode"]) {
+			assert.equal(providerImageBudget(makeModel(provider, "cursor-agent")), 5, `${provider}: exact namespace boundary`);
+		}
+	}
+	assert.equal(providerImageBudget(makeModel("devin", "cursor-agent")), 200, "devin: wire fallback");
 	assert.equal(providerFrameBudget(makeModel("ollama-cloud", "ollama-chat")), 80);
-	assert.equal(providerImageBudget(makeModel("commandcode-b", "bedrock-converse-stream")), 90);
 	assert.equal(providerImageBudget(makeModel("umans", "openai-responses")), 10, "provider policy outranks wire fallback");
-	assert.equal(providerImageBudget(makeModel("umans", "commandcode-custom")), 10, "provider policy outranks namespace rescue");
-	for (const provider of ["unknown", "commandcodex", "xcommandcode"]) {
-		assert.equal(providerImageBudget(makeModel(provider, "cursor-agent")), 5, `${provider}: exact namespace boundary`);
-	}
 	assert.equal(providerImageBudget(undefined), 5);
 	const configured = makeModel("pixel", "openai-responses", "configured-fixture", { imageCountBudget: 3 });
 	assert.equal(providerImageBudget(configured), 3, "explicit model budget wins");
@@ -110,6 +128,13 @@ async function verifyCatalogBudgets(): Promise<void> {
 	assert.equal(imageCount(clampProviderContextImages(six, configured)), 3);
 	assert.deepEqual(floor.messages.slice(1).map(message => message.content[0].text),
 		["image 1", "image 2", "image 3", "image 4", "image 5"], "oldest-first eviction must preserve the surviving history");
+	if (hasProviderBudgets) {
+		for (const provider of ["opencode-go", "zhipu-coding-plan"]) {
+			const clamped = clampProviderContextImages(context(201), makeModel(provider, "cursor-agent"));
+			assert.equal(imageCount(clamped), 200, `${provider}: 0036 clamp must retain the newest 200 images`);
+			assert.equal(clamped.messages[1].content[0].text, "image 1", `${provider}: the oldest image is the evicted one`);
+		}
+	}
 
 	const saved = new Map(["ANTHROPIC_BASE_URL", "FOUNDRY_BASE_URL", "CLAUDE_CODE_USE_FOUNDRY"].map(key => [key, process.env[key]]));
 	const fetchBefore = globalThis.fetch;
@@ -279,7 +304,7 @@ async function verifyKdlBudgetRules(): Promise<void> {
 		/on-api "openai-completions" "openai-responses" "openai-codex-responses" "azure-openai-responses" "google-generative-ai" "google-gemini-cli" "google-vertex" "devin-agent" "devin" "ollama-chat" priority=-1 \{\s*image-count-budget 200\s*\}/,
 		"every remaining request adapter must inherit 200",
 	);
-	for (const provider of ["commandcode", "opencode-go", "zhipu-coding-plan", "devin"]) {
+	for (const provider of deploymentProviders) {
 		const block = readFileSync(join(rulesDir, `${provider}.kdl`), "utf8");
 		assert.match(block, new RegExp(`provider "${provider}" \\{\\s*image-count-budget 200\\b`), `${provider}: deployment policy must cap at 200`);
 	}
@@ -301,7 +326,7 @@ async function verifyKdlBudgetRules(): Promise<void> {
 	assert.equal(wireRule(200, "openai-responses")?.priority, -1, "compiled rules must carry the 200 wire fallback");
 	assert.equal(wireRule(200, "ollama-chat")?.priority, -1);
 	assert.equal(wireRule(200, "devin-agent")?.priority, -1);
-	for (const provider of ["commandcode", "opencode-go", "zhipu-coding-plan", "devin"]) {
+	for (const provider of deploymentProviders) {
 		const rule = entries.find(entry => entry.source?.startsWith(`providers/${provider}.kdl:`)
 			&& entry.providers?.includes(provider) && entry.catalog?.imageCountBudget !== undefined);
 		assert.equal(rule?.catalog?.imageCountBudget, 200, `${provider}: rules.json must carry the compiled 200-cap policy`);
@@ -312,10 +337,7 @@ async function verifyKdlBudgetRules(): Promise<void> {
 	assert.equal(budget("pixel", "anthropic-messages"), 90, "wire fallback resolves for an unlisted gateway");
 	assert.equal(budget("pixel", "openai-responses"), 200);
 	assert.equal(budget("umans", "openai-responses"), 10, "deployment policy outranks the wire fallback");
-	assert.equal(budget("commandcode-b", "commandcode-custom-b"), 200, "a Command Code account alias inherits its provider's cap");
 	assert.equal(budget("devin", "devin-agent"), 200);
-	assert.equal(budget("commandcodex", "cursor-agent"), undefined, "an unrelated id sharing the prefix must not be rescued");
-	assert.equal(budget("xcommandcode", "cursor-agent"), undefined);
 	assert.equal(budget("unknown", "cursor-agent"), undefined, "the floor is the wrapper's, not the resolver's");
 	const configured = makeModel("pixel", "openai-responses", "configured-fixture", { imageCountBudget: 3 });
 	assert.equal(resolveImageCountBudget(configured, true), 3, "a configured model budget wins over every rule");
@@ -361,10 +383,19 @@ async function verifyClampBehaviour(): Promise<void> {
 	const gateway = rewritten(toolCtx, "pixel", "openai-responses");
 	assert.equal(gateway.changed, 0, "a budgeted gateway must not rewrite any history entry");
 	assert.ok(!gateway.omitted, "no omission notice expected on the gateway pair");
-	// 0052: a Command Code account alias resolves through its provider's policy.
-	const alias = rewritten(toolCtx, "commandcode-b", "commandcode-custom-b");
-	assert.equal(alias.changed, 0, "a Command Code alias must not rewrite any history entry");
-	assert.ok(!alias.omitted, "no omission notice expected on the alias pair");
+	if (hasProviderBudgets) {
+		for (const provider of ["opencode-go", "zhipu-coding-plan"]) {
+			const budgeted = rewritten(toolCtx, provider, "cursor-agent");
+			assert.equal(budgeted.changed, 0, `${provider}: 0036 must not rewrite any mid-history entry`);
+			assert.ok(!budgeted.omitted, `${provider}: no omission notice expected`);
+		}
+	}
+	if (hasCommandCodeAliases) {
+		const alias = rewritten(toolCtx, "commandcode-b", "commandcode-custom-b");
+		assert.equal(alias.changed, 0, "0052: a Command Code alias must not rewrite any history entry");
+		assert.ok(!alias.omitted, "0052: no omission notice expected on the alias pair");
+		assert.deepEqual(alias.survivors, Array.from({ length: 6 }, (_, index) => `b64-tool-${index}`), "0052: an alias must preserve the exact historical image bytes and order");
+	}
 	// 0057: the Devin pair.
 	const devin = rewritten(toolCtx, "devin", "devin-agent");
 	assert.equal(devin.changed, 0, "a budgeted devin provider must not rewrite any history entry");

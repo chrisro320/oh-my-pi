@@ -6,7 +6,8 @@ import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
-const plan = resolvePlan({ gate: "verify-kitty-shared-png-cache", roots: [TUI_ROOT] });
+// Fail closed on a version the registry does not list.
+resolvePlan({ gate: "verify-kitty-shared-png-cache", roots: [TUI_ROOT] });
 const { ensurePng, completedPng, imageFingerprint, pngFailureReason } = await import(`${TUI_ROOT}/src/chat/image-loading.ts`);
 const { ToolExecutionComponent, stopSharedSpinnerTicker } = await import(`${TUI_ROOT}/src/chat/tool-execution.ts`);
 const { Container } = await import(`${TUI_ROOT}/src/tui.ts`);
@@ -428,14 +429,12 @@ try {
 			dying.render(80);
 			dying.dispose();
 			dying.dispose();
-			// The shell-replay teardown sits above the old idempotence check from
-			// 18.18.0 on, so the generic teardown must run on every call there.
+			// The shell-replay teardown sits above the old idempotence check, so the
+			// generic teardown must run on every call.
 			assert.equal(
 				teardowns,
-				plan.since("18.18.0") ? 2 : 1,
-				plan.since("18.18.0")
-					? "dispose must not early-return: the generic teardown runs on every call"
-					: `${plan.version} dispose keeps its idempotent early return`,
+				2,
+				"dispose must not early-return: the generic teardown runs on every call",
 			);
 			assert.equal(countGraphics(dying.render(80)), 0, "a teardown-time result cannot paint a disposed block");
 			await ensurePng(dyingImage);

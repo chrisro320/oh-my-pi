@@ -1,0 +1,409 @@
+--- a/dist/types/extensibility/extensions/runner.d.ts
++++ b/dist/types/extensibility/extensions/runner.d.ts
+@@ -438,7 +438,7 @@
+     emitPrepareUserInput(event: PrepareUserInputEvent): Promise<PrepareUserInputResult>;
+     /** Emit input event. Transforms chain, "handled" short-circuits. */
+     emitInput(text: string, images: ImageContent[] | undefined, source: "interactive" | "rpc" | "extension"): Promise<InputEventResult>;
+-    emitContext(messages: AgentMessage[], signal?: AbortSignal): Promise<AgentMessage[]>;
++    emitContext(messages: AgentMessage[], signal?: AbortSignal, purpose?: ContextEvent["purpose"]): Promise<AgentMessage[]>;
+     /** Runs request payload hooks with the model used for that provider request. */
+     emitBeforeProviderRequest(payload: unknown, model?: Model, signal?: AbortSignal): Promise<BeforeProviderRequestEventResult>;
+     /** Runs response hooks with the model that produced that provider response. */
+--- a/dist/types/extensibility/shared-events.d.ts
++++ b/dist/types/extensibility/shared-events.d.ts
+@@ -155,6 +155,8 @@
+     type: "context";
+     /** Messages about to be sent to the LLM (deep copy, safe to modify) */
+     messages: AgentMessage[];
++    /** Full agent turn, or an auxiliary conversion such as a compaction prefix. */
++    purpose: "turn" | "side-request";
+ }
+ /**
+  * Fired when an agent loop starts (once per user prompt).
+--- a/dist/types/session/agent-session-types.d.ts
++++ b/dist/types/session/agent-session-types.d.ts
+@@ -17,7 +17,7 @@
+ import type { TtsrManager } from "../export/ttsr.js";
+ import type { LoadedCustomCommand } from "../extensibility/custom-commands/index.js";
+ import type { CustomTool } from "../extensibility/custom-tools/types.js";
+-import type { ExtensionRunner, PreparedExtension } from "../extensibility/extensions/index.js";
++import type { ContextEvent, ExtensionRunner, PreparedExtension } from "../extensibility/extensions/index.js";
+ import type { CacheWarmer } from "./cache-warmer.js";
+ import type { ContextUsage } from "../extensibility/extensions/types.js";
+ import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions.js";
+@@ -294,7 +294,7 @@
+     /** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
+     reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
+     /** Current session pre-LLM message transform pipeline. */
+-    transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++    transformContext?: (messages: AgentMessage[], signal?: AbortSignal, purpose?: ContextEvent["purpose"]) => AgentMessage[] | Promise<AgentMessage[]>;
+     /** Provider request transform applied after message conversion. */
+     transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
+     /**
+--- a/src/extensibility/extensions/runner.ts
++++ b/src/extensibility/extensions/runner.ts
+@@ -2499,7 +2499,11 @@
+ 		return transformed;
+ 	}
+ 
+-	async emitContext(messages: AgentMessage[], signal?: AbortSignal): Promise<AgentMessage[]> {
++	async emitContext(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++		purpose: ContextEvent["purpose"] = "turn",
++	): Promise<AgentMessage[]> {
+ 		// Check if any extensions actually have context handlers before building
+ 		// the context object or cloning; this runs on every provider request.
+ 		if (!this.hasHandlers("context")) return messages;
+@@ -2524,7 +2528,7 @@
+ 			if (!handlers || handlers.length === 0) continue;
+ 
+ 			for (const handler of handlers) {
+-				const event: ContextEvent = { type: "context", messages: currentMessages };
++				const event: ContextEvent = { type: "context", messages: currentMessages, purpose };
+ 				const handlerResult = await this.#runHandlerWithTimeout(
+ 					handler,
+ 					event,
+--- a/src/extensibility/hooks/runner.ts
++++ b/src/extensibility/hooks/runner.ts
+@@ -380,7 +380,7 @@
+ 
+ 			for (const handler of handlers) {
+ 				try {
+-					const event: ContextEvent = { type: "context", messages: currentMessages };
++					const event: ContextEvent = { type: "context", messages: currentMessages, purpose: "turn" };
+ 					const handlerResult = await handler(event, ctx);
+ 
+ 					if (handlerResult && (handlerResult as ContextEventResult).messages) {
+--- a/src/extensibility/shared-events.ts
++++ b/src/extensibility/shared-events.ts
+@@ -193,6 +193,8 @@
+ 	type: "context";
+ 	/** Messages about to be sent to the LLM (deep copy, safe to modify) */
+ 	messages: AgentMessage[];
++	/** Full agent turn, or an auxiliary conversion such as a compaction prefix. */
++	purpose: "turn" | "side-request";
+ }
+ 
+ /**
+--- a/src/sdk.ts
++++ b/src/sdk.ts
+@@ -131,6 +131,7 @@
+ import type { UserWaitTracker } from "./extensibility/extensions/user-wait";
+ import { formatExtensionLoadNotifications } from "./extensibility/extensions/load-errors";
+ import { partitionStartupExtensions, recordStartupVerdicts } from "./extensibility/extensions/startup-deferral";
++import type { ContextEvent } from "./extensibility/shared-events";
+ import {
+ 	createSkillDescriptionCompressor,
+ 	openSessionSkillDescriptionStore,
+@@ -4646,8 +4647,12 @@
+ 			return obfuscateMessages(obfuscator, converted);
+ 		};
+ 
+-		const transformContext = async (messages: AgentMessage[], signal?: AbortSignal) => {
+-			const withContext = await extensionRunner.emitContext(messages, signal);
++		const transformContext = async (
++			messages: AgentMessage[],
++			signal?: AbortSignal,
++			purpose: ContextEvent["purpose"] = "turn",
++		) => {
++			const withContext = await extensionRunner.emitContext(messages, signal, purpose);
+ 			return wrapSteeringForModel(withContext);
+ 		};
+ 		// Per-request provider-context transforms. Obfuscate FIRST so secrets are
+@@ -5772,7 +5777,9 @@
+ 					hideThinkingSummary: agent.hideThinkingSummary,
+ 					maxRetryDelayMs: agent.maxRetryDelayMs,
+ 					getToolContext: toolCall => toolContextStore.getContext(toolCall),
+-					streamFn: primaryStreamFn,
++					// The private capture turn is side work: it never owns this session's request baselines.
++					streamFn: (requestModel, requestContext, requestOptions) =>
++						primaryStreamFn(requestModel, requestContext, { ...requestOptions, requestPurpose: "side" }),
+ 					transformToolCallArguments,
+ 					// No fallback resolver: only `learn`/`manage_skill` execute here (the rest are refused
+ 					// copies), and the primary's resolver could reach main-session MCP tools.
+--- a/src/session/agent-session-types.ts
++++ b/src/session/agent-session-types.ts
+@@ -36,7 +36,7 @@
+ import type { TtsrManager } from "../export/ttsr";
+ import type { LoadedCustomCommand } from "../extensibility/custom-commands";
+ import type { CustomTool } from "../extensibility/custom-tools/types";
+-import type { ExtensionRunner, PreparedExtension } from "../extensibility/extensions";
++import type { ContextEvent, ExtensionRunner, PreparedExtension } from "../extensibility/extensions";
+ import type { CacheWarmer } from "./cache-warmer";
+ import type { ContextUsage } from "../extensibility/extensions/types";
+ import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions";
+@@ -323,7 +323,11 @@
+ 	/** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
+ 	reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
+ 	/** Current session pre-LLM message transform pipeline. */
+-	transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++	transformContext?: (
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++		purpose?: ContextEvent["purpose"],
++	) => AgentMessage[] | Promise<AgentMessage[]>;
+ 	/** Provider request transform applied after message conversion. */
+ 	transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
+ 	/**
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -1335,7 +1335,7 @@
+ 	/** `<lane>#<window>` of the wrap-up window this session already told the model about. */
+ 	#anthropicWrapUpHinted: string | undefined;
+ 
+-	#transformContext: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++	#transformContext: NonNullable<AgentSessionConfig["transformContext"]>;
+ 	#onPayload: SimpleStreamOptions["onPayload"] | undefined;
+ 	#onResponse: SimpleStreamOptions["onResponse"] | undefined;
+ 	/**
+@@ -2538,7 +2538,10 @@
+ 		this.#titleSystemPrompt = config.titleSystemPrompt;
+ 		this.#autoTitle = config.autoTitle === true;
+ 		this.#transformContext = config.transformContext ?? (messages => messages);
+-		this.#sideStreamFn = config.sideStreamFn ?? streamSimple;
++		// Every request through the side stream (ephemeral turns, idle recaps, handoff, maintenance)
++		// is same-session side work: it never owns the session's request baselines.
++		const sideStreamFn = config.sideStreamFn ?? streamSimple;
++		this.#sideStreamFn = (model, context, options) => sideStreamFn(model, context, { ...options, requestPurpose: "side" });
+ 		this.#onPayload = config.onPayload;
+ 		this.rawSseDebugBuffer = config.rawSseDebugBuffer ?? new RawSseDebugBuffer();
+ 		// Avoid wrapping in an `async` closure when no user callback is configured: the
+@@ -2795,7 +2798,7 @@
+ 			sessionId: () => this.sessionId,
+ 			costGate: () => this.#costGate,
+ 			localProtocolOptions: () => this.#localProtocolOptions(),
+-			transformContext: (messages, signal) => this.#transformContext(messages, signal),
++			transformContext: (messages, signal) => this.#transformContext(messages, signal, "side-request"),
+ 			convertToLlm: messages => this.#convertToLlm(messages),
+ 			onPayload: this.#onPayload,
+ 			onResponse: this.#onResponse,
+@@ -15869,12 +15872,29 @@
+ 		return this.#stats.revision;
+ 	}
+ 
+-	async fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null> {
++	async fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null> {
+ 		const authStorage = this.#modelRegistry.authStorage;
+ 		if (!authStorage.usage.reports) return null;
+-		const reports = await authStorage.usage.reports({
+-			...(provider ? { provider } : {}),
+-			baseUrlResolver: provider => {
++		const reports = await authStorage.usage.reports(this.#usageReportsOptions(signal, providers));
++		// Every fresh usage snapshot doubles as the salvage-sweep heartbeat: the
++		// status line calls this every 5 minutes while the TUI is open. An explicit
++		// empty provider set probed nothing, so it refreshes nothing.
++		if (reports && providers?.length !== 0) {
++			// A provider-scoped fetch (the status line renders one provider's quota) only
++			// refreshes its own rows: the shared snapshot stays complete for `/advisor status`
++			// and for the sweep, which both read every provider.
++			const snapshot = providers === undefined ? reports : this.#mergeUsageReports(providers, reports);
++			this.#usageReports = snapshot;
++			this.#maybeScheduleResetSweep(snapshot, providers);
++		}
++		return reports;
++	}
++
++	#usageReportsOptions(signal: AbortSignal | undefined, providers: readonly Provider[] | undefined) {
++		return {
++			// Only `undefined` is unrestricted: an explicit empty set probes no provider.
++			...(providers !== undefined ? { providers } : {}),
++			baseUrlResolver: (provider: Provider) => {
+ 				if (provider === "google-antigravity") {
+ 					const mode = cfgProvidersAntigravityEndpoint.get(this.settings);
+ 					if (mode === "sandbox") {
+@@ -15886,14 +15906,12 @@
+ 				return this.#modelRegistry.getProviderBaseUrl?.(provider);
+ 			},
+ 			signal,
+-		});
+-		// Every fresh usage snapshot doubles as the salvage-sweep heartbeat: the
+-		// status line calls this every 5 minutes while the TUI is open.
+-		if (reports) {
+-			this.#usageReports = reports;
+-			this.#maybeScheduleResetSweep(reports);
+-		}
+-		return reports;
++		};
++	}
++
++	/** The cached snapshot with `scope`'s rows replaced by `fresh`; other providers keep their newest rows. */
++	#mergeUsageReports(scope: readonly Provider[], fresh: readonly UsageReport[]): UsageReport[] {
++		return [...(this.#usageReports ?? []).filter(report => !scope.includes(report.provider)), ...fresh];
+ 	}
+ 
+ 	/** The newest usage snapshot, available without a network call. */
+@@ -16415,15 +16433,20 @@
+ 	 * Claude finds its candidates in the usage reports' reset inventory first, so a
+ 	 * sweep with nothing to salvage lists no Claude account.
+ 	 */
+-	#maybeScheduleResetSweep(reports: UsageReport[]): void {
++	#maybeScheduleResetSweep(snapshot: UsageReport[], scope?: readonly Provider[]): void {
+ 		const coordinator = this.#resetCoordinator;
+ 		const codexCfg = cfgCodexResets.get(this.settings);
+ 		const claudeCfg = cfgClaudeResets.get(this.settings);
++		// A provider-scoped heartbeat (the status line) only saw its own providers. Codex stays a
++		// candidate and is completed from a live fetch inside the sweep, so a single-provider
++		// session still evaluates its salvage. Anthropic usage is only ever fetched by Anthropic's
++		// own turns: Claude salvage reads the cached snapshot alone and is skipped without it.
++		const completeCodex = scope !== undefined && !scope.includes("openai-codex");
+ 		const codexEnabled =
+ 			shouldEvaluateCodexAutoRedeem(codexCfg.autoRedeem) &&
+-			reports.some(report => report.provider === "openai-codex");
++			(completeCodex || snapshot.some(report => report.provider === "openai-codex"));
+ 		const claudeEnabled =
+-			shouldEvaluateCodexAutoRedeem(claudeCfg.autoRedeem) && reports.some(report => report.provider === "anthropic");
++			shouldEvaluateCodexAutoRedeem(claudeCfg.autoRedeem) && snapshot.some(report => report.provider === "anthropic");
+ 		if (!codexEnabled && !claudeEnabled) return;
+ 		if (coordinator.sweepInFlight || coordinator.inFlightByAccount.size > 0) return;
+ 		const now = Date.now();
+@@ -16431,7 +16454,9 @@
+ 		coordinator.sweepInFlight = true;
+ 		coordinator.lastSweepAt = now;
+ 		coordinator.sweepPromise = (async () => {
+-			if (codexEnabled) {
++			const reports = codexEnabled && completeCodex ? await this.#completeCodexUsageSnapshot() : snapshot;
++			const runCodex = codexEnabled && reports.some(report => report.provider === "openai-codex");
++			if (runCodex) {
+ 				try {
+ 					const statuses = await this.listResetCredits(AbortSignal.timeout(10_000), "openai-codex");
+ 					const effectiveReports = overlayLiveResetCredits(reports, statuses);
+@@ -16474,6 +16499,19 @@
+ 			});
+ 	}
+ 
++	/** Fetch the Codex usage a scoped heartbeat did not cover into the shared snapshot, and return it. */
++	async #completeCodexUsageSnapshot(): Promise<UsageReport[]> {
++		try {
++			const fresh = await this.#modelRegistry.authStorage.usage.reports?.(
++				this.#usageReportsOptions(AbortSignal.timeout(10_000), ["openai-codex"]),
++			);
++			if (fresh) this.#usageReports = this.#mergeUsageReports(["openai-codex"], fresh);
++		} catch (error) {
++			logger.warn("reset salvage sweep: usage completion failed", { error: String(error) });
++		}
++		return this.#usageReports ?? [];
++	}
++
+ 	/**
+ 	 * Export session to HTML.
+ 	 * @param outputPath Optional output path
+--- a/src/edit/auto-repair.ts
++++ b/src/edit/auto-repair.ts
+@@ -380,6 +380,7 @@
+ 					{
+ 						apiKey: registry.resolver(model, sessionId),
+ 						sessionId,
++						requestPurpose: "side",
+ 						maxTokens: COMPLETION_MAX_TOKENS,
+ 						disableReasoning: true,
+ 						signal,
+--- a/src/memories/index.ts
++++ b/src/memories/index.ts
+@@ -903,6 +903,7 @@
+ 					{
+ 						apiKey,
+ 						sessionId: options.sessionId,
++						requestPurpose: "side",
+ 						metadata: options.metadata,
+ 						maxTokens: Math.max(1024, Math.min(4096, Math.floor(modelMaxTokens * 0.2))),
+ 						reasoning: clampThinkingLevelForModel(model, Effort.Low),
+@@ -1049,6 +1050,7 @@
+ 				{
+ 					apiKey,
+ 					sessionId: options.sessionId,
++					requestPurpose: "side",
+ 					metadata: options.metadata,
+ 					maxTokens: 8192,
+ 					reasoning: clampThinkingLevelForModel(model, Effort.Medium),
+--- a/src/mnemopi/backend.ts
++++ b/src/mnemopi/backend.ts
+@@ -616,6 +616,7 @@
+ 									{
+ 										apiKey: modelRegistry.resolver(model, sessionId),
+ 										sessionId,
++										requestPurpose: "side",
+ 										maxTokens: opts?.maxTokens,
+ 										temperature: opts?.temperature,
+ 										reasoning: clampThinkingLevelForModel(model, toReasoningEffort(level)),
+--- a/src/sharpshooter/extract.ts
++++ b/src/sharpshooter/extract.ts
+@@ -248,6 +248,7 @@
+ 				{
+ 					apiKey: modelRegistry.resolver(model, session.sessionId),
+ 					sessionId: session.sessionId,
++					requestPurpose: "side",
+ 					maxTokens: 2048,
+ 					reasoning: clampThinkingLevelForModel(model, Effort.Low),
+ 					toolChoice: "required",
+--- a/src/sharpshooter/consolidate.ts
++++ b/src/sharpshooter/consolidate.ts
+@@ -167,6 +167,7 @@
+ 					{
+ 						apiKey: options.modelRegistry.resolver(model, options.sessionId),
+ 						sessionId: options.sessionId,
++						requestPurpose: "side",
+ 						maxTokens: 8192,
+ 						reasoning: clampThinkingLevelForModel(model, Effort.Medium),
+ 						toolChoice: "required",
+--- a/src/utils/title-generator.ts
++++ b/src/utils/title-generator.ts
+@@ -396,6 +396,7 @@
+ 						{
+ 							apiKey: registry.resolver(model, sessionId),
+ 							sessionId,
++							requestPurpose: "side",
+ 							maxTokens,
+ 							disableReasoning: true,
+ 							// Greedy decode: titling is extraction, not generation. Backends that
+--- a/src/utils/commit-message-generator.ts
++++ b/src/utils/commit-message-generator.ts
+@@ -117,6 +117,7 @@
+ 						{
+ 							apiKey: registry.resolver(candidate.model, sessionId),
+ 							sessionId,
++							requestPurpose: "side",
+ 							maxTokens,
+ 							reasoning: toReasoningEffort(candidate.thinkingLevel),
+ 						},
+--- a/src/commit/changelog/generate.ts
++++ b/src/commit/changelog/generate.ts
+@@ -66,7 +66,7 @@
+ 					messages: [{ role: "user", content: userContent, timestamp: Date.now() }],
+ 					tools: [changelogTool],
+ 				},
+-				{ apiKey, sessionId, maxTokens: 1200, reasoning: toReasoningEffort(thinkingLevel) },
++				{ apiKey, sessionId, requestPurpose: "side", maxTokens: 1200, reasoning: toReasoningEffort(thinkingLevel) },
+ 			),
+ 		{ provider: model.provider },
+ 	);
+--- a/src/commit/conventional/inference.ts
++++ b/src/commit/conventional/inference.ts
+@@ -127,6 +127,7 @@
+ 					{
+ 						apiKey: target.apiKey,
+ 						sessionId: this.#sessionId,
++						requestPurpose: "side",
+ 						maxTokens: 16_384,
+ 						reasoning,
+ 						signal,
+--- a/src/extensibility/custom-commands/bundled/annotate/text-summary.ts
++++ b/src/extensibility/custom-commands/bundled/annotate/text-summary.ts
+@@ -25,6 +25,7 @@
+ 		},
+ 		{
+ 			apiKey: ctx.modelRegistry.resolver(model, ctx.sessionManager.getSessionId()),
++			requestPurpose: "side",
+ 			disableReasoning: true,
+ 			maxTokens: 512,
+ 			signal: requestSignal,
+--- a/src/tts/speech-enhancer.ts
++++ b/src/tts/speech-enhancer.ts
+@@ -95,6 +95,7 @@
+ 						{
+ 							apiKey: registry.resolver(model, sessionId),
+ 							sessionId,
++							requestPurpose: "side",
+ 							maxTokens: ANSWER_MAX_TOKENS,
+ 							disableReasoning: true,
+ 							metadata,

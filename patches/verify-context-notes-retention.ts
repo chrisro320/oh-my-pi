@@ -12,13 +12,10 @@
 //   - schema and source validation (missing source, duplicate ids, extra or
 //     missing fences, supersedes links pointing at non-superseded rows) is
 //     blocked before execution;
-//   - schema errors are field-specific: unknown keys are listed, a missing or
-//     empty text/summary/source names that exact field, and an invalid status
-//     lists the values valid for its group, so a retry fixes one field; a
-//     missing `supersedes` is accepted and defaults to [], while a present
-//     value must be an array of unique nonempty ids (the message shows what
-//     was sent); the post-write guidance states the record schema, status
-//     enums and the supersedes rule;
+//   - invalid schemas leave the accepted notebook unchanged; after an invalid
+//     topic status, a corrected completed topic can be saved without losing
+//     registered ids. Omitted `supersedes` defaults to [], while malformed
+//     values remain blocked;
 //   - supersession rules: a new id may supersede a superseded predecessor,
 //     cyclic or multi-successor links are refused, and terminal statuses
 //     (revoked/superseded) cannot be rewritten under the old id;
@@ -176,7 +173,7 @@ const INDEX_C1_C9_TEXT = noteText(
 // `supersedes` entirely: it must default to [] and stay indexable.
 const NO_SUPERSEDES_TEXT = noteText(indexDoc({
 	constraints: [{ id: "c1", text: "write only verifier file", status: "active", source: "registered during task brief" }],
-	topics: [topic("t1", "retention gate smoke", "open")],
+	topics: [topic("t1", "retention gate smoke", "completed")],
 	decisions: [{ id: "d1", summary: "use real journal receipts", status: "current", source: "registered during task brief" }],
 }));
 const LEGACY_TEXT = "plain legacy notebook without any registered block";
@@ -422,17 +419,6 @@ async function emitResult(
 	})) as Record<string, unknown> | undefined;
 }
 
-/**
- * A blocking context_notes probe through the real runner: returns the exact
- * block reason and always dispatches the paired error result so `pendingWrite`
- * never leaks between probes.
- */
-async function probeBlock(harness: Harness, text: string, toolCallId: string): Promise<string> {
-	const result = await emitCall(harness, text, toolCallId);
-	await emitResult(harness, { toolCallId, isError: true });
-	expect(result?.block === true, `${toolCallId} must be blocked, got ${JSON.stringify(result)}`);
-	return String(result?.reason ?? "");
-}
 
 /**
  * Direct ContextNotesTool dispatch against the live session manager: the real
@@ -1091,86 +1077,65 @@ await scenario("in-memory-journal-ack", async record => {
 	}
 });
 
-// (o) Field-specific schema errors: every violation names the record and the
-//     field to fix, and a bad status lists the values valid for that group, so
-//     a retry changes one field. A missing `supersedes` is accepted and
-//     defaults to [], while a present-but-invalid value names what was sent.
-//     Registered topics are retained exactly like other ids, and stable/duplicate
-//     id checks are unchanged.
+// (o) Invalid schemas must not overwrite the accepted notebook. The next valid
+//     write completes the topic and omits supersedes, then both topic and
+//     constraint omissions must still be rejected. No error wording is pinned.
+const changedRow = (group: "constraints" | "topics" | "decisions", patch: Row): string =>
+	noteText({ ...INDEX_V1, [group]: [{ ...(INDEX_V1[group] as Row[])[0], ...patch }] });
+const invalidSchemaWrites: Array<[string, string]> = [
+	["unknown index key", noteText({ ...INDEX_V1, notes: [] })],
+	["non-array group", noteText({ ...INDEX_V1, constraints: {} })],
+	["non-object record", noteText({ ...INDEX_V1, constraints: ["c1"] })],
+	["invalid id", changedRow("constraints", { id: "c 1" })],
+	["duplicate id", changedRow("topics", { id: "c1" })],
+	["unknown record key", changedRow("constraints", { owner: "chris" })],
+	["missing text", changedRow("constraints", { text: undefined })],
+	["empty summary", changedRow("topics", { summary: "  " })],
+	["missing source", changedRow("constraints", { source: undefined })],
+	["invalid constraint status", changedRow("constraints", { status: "done" })],
+	["invalid topic status", changedRow("topics", { status: "done" })],
+	["invalid decision status", changedRow("decisions", { status: "active" })],
+	["non-array supersedes", changedRow("constraints", { supersedes: "d1" })],
+	["duplicate supersedes", changedRow("constraints", { supersedes: ["d1", "d1"] })],
+	["empty supersedes id", changedRow("constraints", { supersedes: [""] })],
+	["missing successor", changedRow("decisions", { status: "superseded", supersedes: undefined })],
+];
 await run({
-	name: "field-specific-schema-errors",
+	name: "schema-recovery-and-retention",
 	steps: [
 		{ respond: noteWrite(noteText(INDEX_V1)) }, { respond: plainText("registered") },
-		{ respond: noteWrite(NO_SUPERSEDES_TEXT) }, { respond: plainText("supersedes omitted") },
-		{ respond: noteWrite(INDEX_OMIT_C1_TEXT) }, { respond: plainText("attempt") },
+		...invalidSchemaWrites.flatMap(([, text]) => [
+			{ respond: noteWrite(text) }, { respond: plainText("attempted") },
+		]),
+		{ respond: noteWrite(NO_SUPERSEDES_TEXT) }, { respond: plainText("completed") },
+		{ respond: noteWrite(noteText({ ...INDEX_V1, topics: [] })) }, { respond: plainText("attempted") },
+		{ respond: noteWrite(INDEX_OMIT_C1_TEXT) }, { respond: plainText("attempted") },
 	],
 	act: async harness => {
 		await say(harness, "register index");
-		let probeCount = 0;
-		const probe = async (text: string, expected: string): Promise<void> => {
-			const reason = await probeBlock(harness, text, `schema-probe-${++probeCount}`);
-			expect(reason === expected, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(reason)}`);
-		};
-		const doc = (constraints: Row[], topics: Row[] = [], decisions: Row[] = []): string =>
-			noteText({ version: 1, constraints, topics, decisions });
-		// An unknown index-level key is listed with the accepted keys.
-		await probe(noteText({ ...INDEX_V1, notes: [] }),
-			"context-notes-save-gate: Remove unknown index keys: notes. Allowed: version, constraints, topics, decisions.");
-		await probe(noteText({ version: 1, constraints: {}, topics: [], decisions: [] }),
-			"context-notes-save-gate: constraints must be an array (use [] when empty).");
-		await probe(noteText({ version: 1, constraints: ["c1"], topics: [], decisions: [] }),
-			"context-notes-save-gate: constraints[0] must be an object with keys: id, status, source, text, supersedes.");
-		// Stable-id and duplicate-id checks are preserved.
-		await probe(doc([{ id: "c 1", text: "x", status: "active", source: "s" }]),
-			'context-notes-save-gate: constraints[0]: id must be a stable id starting alphanumeric, then alphanumeric/"."/"_"/"-" (got "c 1").');
-		await probe(doc([constraint("c1", "x")], [topic("c1", "shadow")]),
-			"context-notes-save-gate: Duplicate registered id: c1.");
-		// Unknown record keys are listed with the keys allowed for that group.
-		await probe(doc([{ ...constraint("c1", "x"), owner: "chris" }]),
-			"context-notes-save-gate: c1: remove unknown keys owner; allowed keys are id, status, source, text, supersedes.");
-		// Missing/empty content and source name the exact field.
-		await probe(doc([{ id: "c1", status: "active", source: "s" }]),
-			"context-notes-save-gate: c1: text must be a nonempty string (got undefined).");
-		await probe(doc([], [{ id: "t1", summary: "  ", status: "open", source: "s" }]),
-			'context-notes-save-gate: t1: summary must be a nonempty string (got "  ").');
-		await probe(doc([{ id: "c1", text: "x", status: "active" }]),
-			"context-notes-save-gate: c1: source must be a nonempty locator string (got undefined).");
-		// An invalid status lists the values valid for its own group.
-		await probe(doc([{ id: "c1", text: "x", status: "done", source: "s" }]),
-			'context-notes-save-gate: c1: invalid status "done"; valid statuses for constraints are active|revoked|superseded.');
-		await probe(doc([], [{ id: "t1", summary: "x", status: "current", source: "s" }]),
-			'context-notes-save-gate: t1: invalid status "current"; valid statuses for topics are open|completed|archived.');
-		await probe(doc([], [], [{ id: "d1", summary: "x", status: "active", source: "s" }]),
-			'context-notes-save-gate: d1: invalid status "active"; valid statuses for decisions are current|superseded.');
-		// A present-but-invalid supersedes describes what was actually sent.
-		await probe(doc([{ ...constraint("c1", "x"), supersedes: "d1" }]),
-			'context-notes-save-gate: c1: supersedes must be an array of unique nonempty ids (got "d1"); omit it when nothing is superseded.');
-		await probe(doc([{ ...constraint("c1", "x"), supersedes: ["d1", "d1"] }]),
-			'context-notes-save-gate: c1: supersedes must be an array of unique nonempty ids (got ["d1","d1"]); omit it when nothing is superseded.');
-		await probe(doc([{ ...constraint("c1", "x"), supersedes: [""] }]),
-			'context-notes-save-gate: c1: supersedes must be an array of unique nonempty ids (got [""]); omit it when nothing is superseded.');
-		// The default [] feeds supersession: a superseded record still needs a successor.
-		await probe(doc([], [], [{ id: "d1", summary: "x", status: "superseded", source: "s" }]),
-			"context-notes-save-gate: d1: missing successor.");
-		// Omitting `supersedes` is a valid registration.
-		await say(harness, "write without supersedes");
+		for (const [name] of invalidSchemaWrites) {
+			await say(harness, name);
+			const branch = harness.branch();
+			expect(lastNoteResult(branch)?.message?.isError === true, `${name} must be rejected`);
+			const revisions = noteRevisions(branch);
+			expect(revisions.length === 1 && revisions[0].data?.text === noteText(INDEX_V1),
+				`${name} must leave the accepted notebook unchanged`);
+		}
+		await say(harness, "save completed topic without supersedes");
 		expect(noteRevisions(harness.branch()).at(-1)?.data?.text === NO_SUPERSEDES_TEXT,
-			"a constraint/decision record without supersedes must be accepted");
-		// Registered topics are retained exactly like other ids.
-		await probe(doc([constraint("c1", "write only verifier file")], [], [decision("d1", "use real journal receipts")]),
-			"context-notes-save-gate: Keep registered topics id t1; shorten it to a source pointer instead.");
-		// The defaulted record is registered, so dropping c1 is refused.
-		await probe(doc([], [topic("t1", "retention gate smoke", "open")], [decision("d1", "use real journal receipts")]),
-			"context-notes-save-gate: Keep registered constraints id c1; shorten it to a source pointer instead.");
+			"the completed topic and omitted supersedes must be accepted");
+		await say(harness, "try to drop the completed topic");
+		expect(lastNoteResult(harness.branch())?.message?.isError === true, "completed topic must remain registered");
 		await say(harness, "try to drop c1");
 	},
 	assertions: harness => {
 		const branch = harness.branch();
 		const revisions = noteRevisions(branch);
-		expect(revisions.length === 2, `only the registered and the supersedes-omitted writes are accepted, got ${revisions.length}`);
-		expect(revisions[1].data?.text === NO_SUPERSEDES_TEXT, "the missing-supersedes write must persist verbatim");
-		expect(lastNoteResult(branch)?.message?.isError === true, "the final registered-id omission must stay blocked");
-		return { revisions: 2, exactFieldMessages: true, supersedesDefault: true, topicRetained: true };
+		expect(revisions.length === 2 && revisions[1].data?.text === NO_SUPERSEDES_TEXT,
+			"invalid schemas and id omissions must not overwrite the completed notebook");
+		expect(ackEntries(branch).length === 2, "only accepted revisions may receive acknowledgements");
+		expect(lastNoteResult(branch)?.message?.isError === true, "registered constraint omission must stay blocked");
+		return { rejectedSchemas: invalidSchemaWrites.length, revisions: 2, completed: true, topicRetained: true };
 	},
 });
 

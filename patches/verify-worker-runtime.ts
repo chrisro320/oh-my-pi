@@ -8,9 +8,17 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { workerPoolForTests } from "./worker-pool-for-tests.ts";
 import { run as threadScenario } from "./worker-thread-scenario.ts";
+import { resolvePlan } from "./version-registry.ts";
 const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT!;
 const NM = process.env.OMP_PATCH_VERIFY_NM!;
 assert.ok(root && NM, "private selected runtime is required");
+const plan = resolvePlan({ gate: "verify-worker-runtime", roots: [root] });
+// Local retirements are selected by capability, not an upstream version boundary.
+const capabilityMenu = spawnSync("bash", [new URL("./apply.sh", import.meta.url).pathname, "--print-capabilities"], {
+	env: { ...process.env, OMP_PATCH_VERSION: plan.version }, encoding: "utf8",
+});
+assert.equal(capabilityMenu.status, 0, `cannot resolve plan capabilities: ${capabilityMenu.stderr}`);
+const hasDevinDump = capabilityMenu.stdout.split(/\s+/).includes("0071");
 const { SubagentWorkerPool, SubagentWorker } = await import(`${root}/src/thread/subagent-worker.ts`);
 const { Settings } = await import(`${root}/src/config/settings.ts`);
 const { cfgTaskWorkerThreads, cfgTaskAgentIdleTtlMs } = await import(`${root}/src/task/settings.ts`);
@@ -84,8 +92,8 @@ await leg("Devin", async () => {
 		assert.equal(new Set(rows.map(row => row.session)).size, 4, "each realm owns a distinct Devin session UUID");
 		assert.equal(new Set(rows.flatMap(row => row.requests.map(id => `${row.session}:${id}`))).size, 8, "session/request identity pairs are unique across realms");
 		const files = readdirSync(dumps).filter(name => name.endsWith(".json"));
-		assert.equal(files.length, 4, "0071 each realm keeps its own same-millisecond diagnostic dump");
-		return { rows, dumps: files };
+		if (hasDevinDump) assert.equal(files.length, 4, "0071 each realm keeps its own same-millisecond diagnostic dump");
+		return { rows, dumps: files, diagnosticDump: hasDevinDump ? "0071 asserted" : "0071 absent from plan" };
 	} finally { fixtures.forEach(fixture => fixture.dispose()); }
 });
 await leg("payload", async () => {

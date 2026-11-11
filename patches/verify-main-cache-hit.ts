@@ -3,10 +3,19 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
+const plan = resolvePlan({ gate: "verify-main-cache-hit", roots: [AGENT_ROOT, TUI_ROOT] });
+// Local retirements are selected by capability, not an upstream version boundary.
+const capabilityMenu = spawnSync("bash", [new URL("./apply.sh", import.meta.url).pathname, "--print-capabilities"], {
+	env: { ...process.env, OMP_PATCH_VERSION: plan.version }, encoding: "utf8",
+});
+assert.equal(capabilityMenu.status, 0, `cannot resolve plan capabilities: ${capabilityMenu.stderr}`);
+const countsCacheReads = capabilityMenu.stdout.split(/\s+/).includes("0004");
 const { SessionManager, SessionEntryIndex } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { SEGMENTS } = await import(`${TUI_ROOT}/src/status-line/segments.ts`);
 const { StatusLineComponent } = await import(`${TUI_ROOT}/src/status-line/component.ts`);
@@ -87,7 +96,7 @@ function assertStatusSurfaces(manager: Manager, expectedTokens: number) {
 		for (const op of ops) if (op[0] === "add") collect(op[4]);
 		assert.equal(labels["omp.status.cache_hit"], "90.00%", "native hit rate must exclude auxiliary calls");
 		assert.equal(labels["omp.status.cache_turn"], "90.0% /90.00%", "native cache_turn must pair the settled turn with the main-session rate");
-		assert.equal(labels["omp.status.token_total"], formatNumber(expectedTokens), "native total includes cache and orchestration reads");
+		assert.equal(labels["omp.status.token_total"], formatNumber(expectedTokens), "native total must follow the plan's cache-read policy and keep orchestration service work");
 		const ansi = status.getTopBorder(160).content.replace(/\x1b\[[0-9;]*m/g, "");
 		for (const label of Object.values(labels)) assert.ok(ansi.includes(label), `ANSI border must agree with native value ${label}`);
 	} finally {
@@ -131,7 +140,23 @@ try {
 	assert.equal(manager.getUsageStatistics().input, 9100, "total usage still includes auxiliary input");
 	assert.equal(manager.getUsageStatistics().cacheRead, 900);
 	assert.equal(manager.getUsageStatistics().orchestrationCacheRead, 1000, "the fixture includes orchestration cache reads");
-	assertStatusSurfaces(manager, 11170);
+	assertStatusSurfaces(manager, countsCacheReads ? 11170 : 9270);
+	// 0004 counts cache reads; plans that retire it count provider-side service work only.
+	const tokenTotal = SEGMENTS.token_total
+		.describe({
+			usageStats: {
+				input: 10,
+				output: 20,
+				cacheWrite: 30,
+				cacheRead: 4_000,
+				orchestrationInput: 50,
+				orchestrationOutput: 60,
+				orchestrationCacheRead: 7_000,
+			},
+		} as never)
+		?.spans?.map((part: { t?: string }) => part.t ?? "")
+		.join("");
+	assert.equal(tokenTotal, formatNumber(countsCacheReads ? 11170 : 170), "token_total cache reads must follow the plan's 0004 capability");
 	appendAssistant(manager, 2);
 	assert.match(footer(manager).content, /90\.00%/, "subsequent primary messages extend the primary-only ratio");
 	await manager.ensureOnDisk();
@@ -179,8 +204,8 @@ try {
 	const mirrorSource = readFileSync(`${AGENT_ROOT}/src/thread/remote-agent-session.ts`, "utf8");
 	assert.ok(mirrorSource.includes("getMainCacheHitRate: () => this.#entryIndex.mainCacheHitRate()"), "RemoteAgentSession must implement the member from its index");
 	assert.equal(reopened.getUsageStatistics().input, 9200, "reloading preserves aggregate billing usage");
-	assertStatusSurfaces(reopened, 12180);
-	console.log("verify-main-cache-hit: ANSI/native main-only cache rate and cache-inclusive totals survive reload");
+	assertStatusSurfaces(reopened, countsCacheReads ? 12180 : 9380);
+	console.log(`verify-main-cache-hit: ANSI/native main-only cache rate and plan-selected totals survive reload (0004 ${countsCacheReads ? "present" : "absent"})`);
 } finally {
 	rmSync(root, { recursive: true, force: true });
 }

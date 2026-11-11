@@ -14,10 +14,9 @@ import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? join(NM, "pi-coding-agent");
-// The live-chain host this gate proves exists from 18.18.0 (threads land in
-// 18.17.0); an older registered tree has no arm, so fail closed instead of skipping.
+// The live-chain host and message threads ship in every registered plan; the
+// registry check fails closed on a tree it does not list.
 const plan = resolvePlan({ gate: "verify-compaction-live-chain-midnight", roots: [AGENT] });
-assert.ok(plan.since("18.18.0"), "the midnight live-chain host exists from this release on");
 const BEFORE = "2026-11-03T23:59:59.000Z";
 const AFTER = "2026-11-04T00:00:01.000Z";
 

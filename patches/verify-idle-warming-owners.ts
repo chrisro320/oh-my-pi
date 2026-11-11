@@ -208,7 +208,7 @@ function scenario(budgetEnv: string | undefined, replay: () => ReplayMessage): S
 		decide: async () => "warm",
 		report: (event: ResultEvent) => reports.push(event),
 	});
-	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => plan.since("18.18.0") ? undefined : true);
+	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => undefined);
 	w.onAgentSettled();
 	return { w, reports, sent };
 }
@@ -240,10 +240,8 @@ try {
 	{
 		const s = scenario(String(5 * 60 * MIN), () => message(200_000, 0));
 		assert.equal(s.w.status.state, "scheduled", "5h: must arm");
-		if (plan.since("18.18.0")) {
-			assert.ok(Math.abs(s.w.status.stopsAt! - (Date.now() + 5 * 60 * MIN)) < 100,
-				"stopsAt must expose the five-hour idle budget, not the stock thirty minutes");
-		}
+		assert.ok(Math.abs(s.w.status.stopsAt! - (Date.now() + 5 * 60 * MIN)) < 100,
+			"stopsAt must expose the five-hour idle budget, not the stock thirty minutes");
 		let fired = 0;
 		while (await fireRefresh()) fired += 1;
 		assert.equal(fired, 5, "5h: exactly five refreshes");
@@ -593,7 +591,7 @@ function warmerFor(model: CatalogModel, options?: { holdStream?: boolean; idle?:
 		},
 		report: () => {},
 	});
-	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => plan.since("18.18.0") ? undefined : true);
+	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => undefined);
 	// A run stays in its streaming phase unless the caller settles it, which is
 	// what a live session does when the agent run ends.
 	if (options?.idle) w.onAgentSettled();

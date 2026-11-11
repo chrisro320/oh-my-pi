@@ -31,6 +31,7 @@ import assert from "node:assert";
 import { mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // Keep the Antigravity update-manifest probe offline and deterministic (the
 // probe returns early on this env var); no manifest is mocked and no other URL
@@ -41,6 +42,8 @@ process.env[VERSION_ENV] = "2.19.1";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const plan = resolvePlan({ gate: "verify-account-eligibility-retention", roots: [CATALOG] });
+const includeAntigravity = !plan.since("18.18.4");
 
 // Runtime-selected package root (a sandbox/CATALOG override, not a build-time
 // specifier), so these imports cannot be static.
@@ -385,8 +388,11 @@ async function runRetention(p: Provider, work: string): Promise<void> {
 const work = mkdtempSync(join(tmpdir(), "account-eligibility-"));
 try {
 	await runRetention(codexProvider(work), work);
-	await runRetention(googleProvider(work), work);
-	console.log("PASS verify-account-eligibility-retention: codex + antigravity 403 seams, fake fetch, private models.db");
+	// Antigravity's injected discovery bypasses auth pause enforcement. Preserve
+	// this coverage only for plans where users can still reach that provider.
+	if (includeAntigravity) await runRetention(googleProvider(work), work);
+	else console.log("SKIP antigravity discovery retention: provider paused by the selected plan");
+	console.log(`PASS verify-account-eligibility-retention: codex${includeAntigravity ? " + antigravity" : ""} 403 seams, fake fetch, private models.db`);
 } finally {
 	if (previousVersionEnv === undefined) {
 		delete process.env[VERSION_ENV];

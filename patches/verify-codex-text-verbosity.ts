@@ -65,9 +65,8 @@ const IS_BOOT = process.env.OMP_TEXT_VERBOSITY_BOOT === "1";
 const IS_FAULT_CHILD = process.env.OMP_TEXT_VERBOSITY_FAULT_CHILD === "1";
 
 const plan = resolvePlan({ gate: "verify-codex-text-verbosity", roots: [AGENT_ROOT, AI_ROOT] });
-// The Codex text.verbosity default exists since 18.18.0; an older tree fails
-// closed here instead of passing a contract it never carried.
-assert.ok(plan.since("18.18.0"), `text-verbosity gate: ${plan.version} predates the Codex text.verbosity default`);
+// The Codex text.verbosity default ships in every registered plan; the registry
+// check above fails closed on a tree it does not list.
 
 const results: Array<{ name: string; ok: boolean; detail: string }> = [];
 const note = (name: string, ok: boolean, detail: string): void => {

@@ -73,6 +73,34 @@ function stableXdevCatalog(prompt: string): string {
 	return catalog === prompt.slice(start, end) ? prompt : prompt.slice(0, start) + catalog + prompt.slice(end);
 }
 
+const SESSION_TOOL_NAMES = /^Session tool names: (`[^`\n]+`(?:, `[^`\n]+`)*)\.$/m;
+
+/** Sort the eval tool's single registration-ordered `Session tool names:` line. */
+function stableSessionToolNames(description: string): string {
+	const match = SESSION_TOOL_NAMES.exec(description);
+	if (!match) return description;
+	const rest = description.slice(match.index + match[0].length);
+	if (SESSION_TOOL_NAMES.test(rest)) return description;
+	const names = match[1].split(", ");
+	if (new Set(names).size !== names.length) return description;
+	const line = `Session tool names: ${[...names].sort().join(", ")}.`;
+	return line === match[0] ? description : description.slice(0, match.index) + line + rest;
+}
+
+/** Copy a tool definition whose description (top-level or chat-completions `function`) changes. */
+function stableTool(tool: unknown): unknown {
+	if (!record(tool)) return tool;
+	if (typeof tool.description === "string") {
+		const description = stableSessionToolNames(tool.description);
+		return description === tool.description ? tool : { ...tool, description };
+	}
+	if (record(tool.function) && typeof tool.function.description === "string") {
+		const description = stableSessionToolNames(tool.function.description);
+		return description === tool.function.description ? tool : { ...tool, function: { ...tool.function, description } };
+	}
+	return tool;
+}
+
 function record(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -96,11 +124,21 @@ function stableProviderPayload(value: unknown): unknown {
 			system[index] = { ...block, text };
 		}
 	}
-	if (instructions === undefined && system === undefined) return value;
+	let tools: unknown[] | undefined;
+	if (Array.isArray(value.tools)) {
+		for (let index = 0; index < value.tools.length; index++) {
+			const tool = stableTool(value.tools[index]);
+			if (tool === value.tools[index]) continue;
+			tools ??= value.tools.slice();
+			tools[index] = tool;
+		}
+	}
+	if (instructions === undefined && system === undefined && tools === undefined) return value;
 	return {
 		...value,
 		...(instructions === undefined ? {} : { instructions }),
 		...(system === undefined ? {} : { system }),
+		...(tools === undefined ? {} : { tools }),
 	};
 }
 

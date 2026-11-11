@@ -1,4 +1,4 @@
-// Verify a staged companion extension set on the 18.18.0 tree.
+// Verify a staged companion extension set on the 18.18.0/18.18.6 tree.
 //
 // This gate replaces verify-extensions-load-18160.ts on the 18.18.0 arm. The
 // 18.16.0 gate loaded the repository copies of the extensions; the 18.18.0
@@ -44,8 +44,8 @@
 //   - `cache_warming_result` (0092): the warmer result event.
 //   - `runIdleEphemeralTurn` (0010): the idle side-turn context action.
 //   - `ContextEvent.purpose` (0095): `"turn" | "side-request"`.
-// On pristine 18.18.0 none of the four exist, so this gate fails -- that is the
-// negative control. A candidate tree with the rebased chain passes.
+// On pristine 18.18.0 and 18.18.6 none of the four exist, so this gate fails --
+// that is the negative control. A candidate tree with the rebased chain passes.
 //
 // Legs:
 //   1. companion-set     the expected staged modules are present (after symlink
@@ -205,7 +205,6 @@ const EXPECTED_STAGED = EXPECTED;
 
 const plan = resolvePlan({ gate: "verify-extensions-load-18180", roots: [AGENT_ROOT] });
 const agentVersion = plan.version;
-assert.ok(plan.since("18.18.0"), `extensions-load-18180 gate: this companion-staging set starts on the newest release; tree is ${agentVersion}`);
 
 const sha256 = (bytes: Buffer | string): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -535,8 +534,8 @@ await leg("staged-untouched", async () => {
 });
 
 // ----------------------------------------------------------- patch-hooks --
-// The four capabilities our chain owns. On pristine 18.18.0 every marker is
-// absent, which is exactly the negative control.
+// The four capabilities our chain owns. On pristine 18.18.0 and 18.18.6 every
+// marker is absent, which is exactly the negative control.
 const typesSource = readFileSync(
 	join(AGENT_ROOT, "src/extensibility/extensions/types.ts"),
 	"utf8",

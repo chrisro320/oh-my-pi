@@ -106,11 +106,9 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const GATE = "verify-anthropic-threads-cache-shape";
-// Message threads land in 18.17.0; this plan's target is the newest release. A
-// plan with no arm here fails closed rather than silently skipping the thread
-// assertions.
+// Message threads land in 18.17.0 and every registered plan ships them; the
+// registry check fails closed on a tree it does not list.
 const plan = resolvePlan({ gate: GATE, roots: [AI_ROOT] });
-assert.ok(plan.since("18.18.0"), `${GATE}: this thread fixture starts on the newest release; tree is ${plan.version}`);
 for (const [name, root] of [
 	["OMP_PATCH_VERIFY_AI_ROOT", AI_ROOT],
 	["OMP_PATCH_VERIFY_AGENT_ROOT", AGENT_ROOT],

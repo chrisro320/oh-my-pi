@@ -278,6 +278,78 @@ if (!privateProcess) {
 }
 globalThis.fetch = (() => { throw new Error("Network forbidden outside the synthetic OAuth transport"); }) as typeof fetch;
 
+// Controls re-enter only the named public-auth scenario. Loader faults affect a
+// child realm, never the read-only runtime or another scenario's provider policy.
+const scopeCase = process.argv[2] === "--scope-control" ? process.argv[3] : undefined;
+const scopeMutation = scopeCase ? process.argv[4] : undefined;
+const scopeNames: Record<string, string> = {
+	t: "(t)", u: "(u)", v: "(v)", w: "(w)", x: "(x)",
+	publish: "an unpublishable local exchange is refused before the grant",
+	pause: "a paused provider is refused before any token POST",
+};
+const scopeFaults: Record<string, { file: string; changes: Array<[string, string]>; red: string }> = {
+	"unlock-other-provider": {
+		file: "auth/refresh.ts",
+		changes: [["if (provider !== DURABLE_EXCHANGE_PROVIDER) {", "if (false) {"]],
+		red: "openai-codex: refused before any row or journal read",
+	},
+	"journal-other-provider": {
+		file: "auth/refresh.ts",
+		changes: [["const durableExchange = localExchange && provider === DURABLE_EXCHANGE_PROVIDER;", "const durableExchange = localExchange;"]],
+		red: "outcome is unresolved",
+	},
+	"drop-staged-adoption": {
+		file: "auth/refresh.ts",
+		changes: [["const staged = exchangeStore.readStagedCredentialRefreshResult(row.id, serialized.data);", "const staged = undefined;"]],
+		red: "a staged replacement must be published without another exchange",
+	},
+	"adopt-stale-generation": {
+		file: "auth/sqlite-credential-store.ts",
+		changes: [
+			["if (exchange?.generation !== generation || exchange.expected_hash !== expectedHash) return undefined;", "if (!exchange) return undefined;"],
+			["if (prior?.generation !== generation || prior.expected_hash !== expectedHash || prior.replacement_data === null) return false;", "if (!prior || prior.replacement_data === null) return false;"],
+		],
+		red: "a stale marker must not suppress the ordinary exchange",
+	},
+	"publish-before-fence": {
+		file: "auth/refresh.ts",
+		changes: [['logger.info("OAuth token exchange succeeded", fingerprints);', 'logger.info("OAuth token exchange succeeded", fingerprints);\n\t\t\tthis.#deps.store.updateAuthCredential(row.id, merged);']],
+		red: "a peer rotation must survive the previous owner's CAS",
+	},
+	"allow-unpublishable": {
+		file: "auth/refresh.ts",
+		changes: [["if (localExchange && !this.#deps.store.tryUpdateAuthCredentialIfMatches && !exchangeJournal) {", "if (false) {"]],
+		red: "an unpublishable local exchange must be refused before the grant",
+	},
+	"unpause-provider": {
+		file: "registry/oauth/index.ts",
+		changes: [["\tassertProviderEnabled(provider);", "\t// Mutation: allow a paused built-in refresh."]],
+		red: "a paused provider must be refused before any token POST",
+	},
+};
+let scopeMutationsLoaded = 0;
+if (scopeCase) assert.ok(scopeNames[scopeCase.split("-")[0]], "unknown OAuth control case");
+if (scopeMutation) {
+	const fault = scopeFaults[scopeMutation];
+	assert.ok(fault, "unknown OAuth mutation");
+	Bun.plugin({
+		name: "oauth-scope-control",
+		setup(build) {
+			build.onLoad({ filter: /\/(auth\/(?:refresh|sqlite-credential-store)|registry\/oauth\/index)\.ts$/ }, args => {
+				let contents = readFileSync(args.path, "utf8");
+				if (args.path === join(AI_ROOT, "src", fault.file)) {
+					for (const [from, to] of fault.changes) {
+						assert.equal(contents.split(from).length, 2, `${scopeMutation}: unique source anchor`);
+						contents = contents.replace(from, to);
+					}
+					scopeMutationsLoaded++;
+				}
+				return { contents, loader: "ts" };
+			});
+		},
+	});
+}
+
 // Dynamic imports only: the specifier is genuinely runtime-selected (the tree
 // under test); a static import would bind the live install. Fail closed.
 let AuthStorageClass!: new (store: Store, options?: Record<string, unknown>) => Auth;
@@ -980,6 +1052,7 @@ async function scenario(name: string, fn: () => Promise<void>): Promise<void> {
 		process.exit(1);
 	}, 30_000);
 	try {
+		if (scopeCase && !name.startsWith(scopeNames[scopeCase.split("-")[0]])) return;
 		await fn();
 		passedScenarios++;
 		console.log(`  PASS  ${name}`);
@@ -1993,6 +2066,8 @@ await scenario("lost response survives restart and lease expiry without a second
 
 await scenario("known result arriving after owner timeout is published without another exchange", async () => {
 	await withCase(async c => {
+		const clock = installTransport({ token: () => { throw new Error("this case uses the public refresh callback"); } });
+		c.cleanup.push(() => clock.restore());
 		const id = await seed(c, expiredCred({ access: "late-access-0", refresh: "late-refresh-0" }));
 		const response = Promise.withResolvers<Cred>();
 		const staged = Promise.withResolvers<void>();
@@ -2022,13 +2097,16 @@ await scenario("known result arriving after owner timeout is published without a
 			refresh: async (_current: Cred, signal: AbortSignal) => {
 				exchanges++;
 				signal.addEventListener("abort", () => { exchangeAborted = true; }, { once: true });
+				// Spend the caller's budget only after admission, not during a
+				// cold SQLite/open or module load in the isolated fault copy.
+				if (exchanges === 1) clock.advanceClock(5_001);
 				return response.promise;
 			},
 		});
 		// 18.16.0 budgets the caller, not the exchange: the admitted exchange keeps
 		// running (and keeps renewing the row lease), so a retry can never begin a
 		// second exchange and the journal is consulted only under that lease.
-		await assert.rejects(() => refresh(250), /timed out/);
+		await assert.rejects(() => refresh(5_000), /timed out/);
 		assert.equal(exchanges, 1, "the owner timeout must leave its admitted exchange running");
 		assert.equal(exchangeAborted, false, "a caller's budget cannot abort the exchange it abandoned");
 		assert.deepEqual(publications, [], "a timed-out owner cannot publish");
@@ -2487,13 +2565,13 @@ await scenario("an exhausted fallback chain refuses with the auth-unlock diagnos
 });
 
 await scenario("an unpublishable local exchange is refused before the grant", async () => {
-	const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
+	const t = installTransport({ tokenMarker: "auth.openai.com/oauth/token", token: () => tokenReply("forbidden", "forbidden") });
 	try {
 		await withCase(async c => {
-			const provider = "google-antigravity";
+			const provider = "openai-codex";
 			const id = await seed(
 				c,
-				expiredCred({ access: "nopublish-0", refresh: "nopublish-r0", projectId: "nopublish-project" }),
+				expiredCred({ access: "nopublish-0", refresh: "nopublish-r0", accountId: "nopublish-account" }),
 				provider,
 			);
 			// A custom store that carries the lease concern but no publication
@@ -2525,6 +2603,33 @@ await scenario("an unpublishable local exchange is refused before the grant", as
 		t.restore();
 	}
 });
+
+if (plan.since("18.18.4")) {
+	await scenario("a paused provider is refused before any token POST", async () => {
+		// pi-ai/oauth is a public auth entry point for SDK callers holding an old
+		// grant; unlike the account pool, it does not discard paused rows first.
+		const { refreshOAuthToken } = await import(`${AI_ROOT}/src/registry/oauth/index.ts`);
+		const { ProviderDisabledError } = await import(`${AI_ROOT}/src/error/index.ts`);
+		const t = installTransport({
+			tokenMarker: "oauth2.googleapis.com/token",
+			token: () => tokenReply("paused-access-1", "paused-refresh-1"),
+		});
+		try {
+			let refusal: unknown;
+			try {
+				await refreshOAuthToken("google-antigravity", expiredCred({
+					access: "paused-access-0", refresh: "paused-refresh-0", projectId: "paused-project",
+				}));
+			} catch (error) {
+				refusal = error;
+			}
+			assert.equal(t.tokenPosts, 0, "a paused provider must be refused before any token POST");
+			assert.ok(refusal instanceof ProviderDisabledError, "the public auth API must explain the provider pause");
+		} finally {
+			t.restore();
+		}
+	});
+}
 
 await scenario("broker filters, canceled waiters and authoritative replacement identity", async () => {
 	assert.equal(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version, aiVersion,
@@ -2867,7 +2972,7 @@ await scenario("(t) unlock is not applicable to a provider without the journal",
 	try {
 		await withCase(async c => {
 			const oauth = requireUnlockSurface(c);
-			for (const provider of ["google-antigravity", "openai-codex", "xai-oauth", "mistral"]) {
+			for (const provider of ["openai-codex", "xai-oauth", "mistral"]) {
 				const bare = await oauth.inspectUnresolvedRefresh(provider);
 				assert.equal(bare.reason, "not-applicable", `${provider}: refused before any row or journal read`);
 				assert.equal(bare.eligible, false, `${provider}: never eligible`);
@@ -2876,17 +2981,17 @@ await scenario("(t) unlock is not applicable to a provider without the journal",
 			}
 			const id = await seed(
 				c,
-				expiredCred({ access: "ga-t-0", refresh: "ga-t-r0", projectId: "ga-t-project" }),
-				"google-antigravity",
+				expiredCred({ access: "ga-t-0", refresh: "ga-t-r0", accountId: "codex-t-account" }),
+				"openai-codex",
 			);
 			const legacy = seedLegacyExchange(c, id);
-			const inspected = await oauth.inspectUnresolvedRefresh("google-antigravity");
+			const inspected = await oauth.inspectUnresolvedRefresh("openai-codex");
 			assert.equal(inspected.reason, "not-applicable", "a legacy marker must not make another provider eligible");
-			const unlocked = await oauth.unlockAndRefreshStored("google-antigravity", { fence: "unused-fence" });
+			const unlocked = await oauth.unlockAndRefreshStored("openai-codex", { fence: "unused-fence" });
 			assert.equal(unlocked.outcome, "not-applicable", "unlock reports not applicable, not recovery or failure");
 			assert.equal(t.tokenPosts, 0, "a not-applicable unlock issues no token request");
 			assert.deepEqual(exchangeRows(c), [legacy], "a not-applicable unlock leaves the legacy marker untouched");
-			const row = rowOf(c, id, "google-antigravity");
+			const row = rowOf(c, id, "openai-codex");
 			assert.equal(row?.access, "ga-t-0", "a not-applicable unlock rewrites no credential row");
 			assert.equal(row?.refresh, "ga-t-r0");
 			// Mistral Vibe rotates its token like anthropic but sits outside the
@@ -2912,16 +3017,16 @@ await scenario("(t) unlock is not applicable to a provider without the journal",
 });
 
 await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is rewritten", async () => {
-	const provider = "google-antigravity";
+	const provider = "openai-codex";
 	const t = installTransport({
-		tokenMarker: "oauth2.googleapis.com/token",
+		tokenMarker: "auth.openai.com/oauth/token",
 		token: () => tokenReply("ga-u-access-1", "ga-u-refresh-1"),
 	});
 	try {
 		await withCase(async c => {
 			const id = await seed(
 				c,
-				expiredCred({ access: "ga-u-access-0", refresh: "ga-u-refresh-0", projectId: "ga-u-project" }),
+				expiredCred({ access: "ga-u-access-0", refresh: "ga-u-refresh-0", accountId: "codex-u-account" }),
 				provider,
 			);
 			const legacy = seedLegacyExchange(c, id);
@@ -2931,7 +3036,7 @@ await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is 
 			const row = rowOf(c, id, provider);
 			assert.equal(row?.access, "ga-u-access-1");
 			assert.equal(row?.refresh, "ga-u-refresh-1", "the rotated refresh token must be stored");
-			assert.equal(row?.projectId, "ga-u-project", "provider metadata must survive");
+			assert.equal(row?.accountId, "codex-u-account", "provider metadata must survive");
 			assert.deepEqual(exchangeRows(c), [legacy], "a non-Anthropic exchange must not reserve, stage or rewrite the journal");
 		});
 	} finally {
@@ -2940,9 +3045,9 @@ await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is 
 });
 
 await scenario("(v) a legacy staged replacement is adopted only for the row it was staged for", async () => {
-	const provider = "google-antigravity";
+	const provider = "openai-codex";
 	const t = installTransport({
-		tokenMarker: "oauth2.googleapis.com/token",
+		tokenMarker: "auth.openai.com/oauth/token",
 		token: () => tokenReply("ga-v-fresh-access", "ga-v-fresh-refresh"),
 	});
 	try {
@@ -2951,7 +3056,7 @@ await scenario("(v) a legacy staged replacement is adopted only for the row it w
 			// known-minted successor, so it is published without a second exchange.
 			const adoptedId = await seed(
 				c,
-				expiredCred({ access: "ga-v-0", refresh: "ga-v-r0", projectId: "ga-v-project" }),
+				expiredCred({ access: "ga-v-0", refresh: "ga-v-r0", accountId: "codex-v-account" }),
 				provider,
 			);
 			const staged: Cred = {
@@ -2959,7 +3064,7 @@ await scenario("(v) a legacy staged replacement is adopted only for the row it w
 				access: "ga-v-staged-access",
 				refresh: "ga-v-staged-refresh",
 				expires: Date.now() + 3_600_000,
-				projectId: "ga-v-project",
+				accountId: "codex-v-account",
 			};
 			seedLegacyExchange(c, adoptedId, { staged });
 			const adopted = await c.auth.oauth.refresh(adoptedId);
@@ -2971,19 +3076,19 @@ await scenario("(v) a legacy staged replacement is adopted only for the row it w
 			);
 			const adoptedRow = rowOf(c, adoptedId, provider);
 			assert.equal(adoptedRow?.refresh, "ga-v-staged-refresh", "the staged refresh token must be stored");
-			assert.equal(adoptedRow?.projectId, "ga-v-project", "provider metadata must survive adoption");
+			assert.equal(adoptedRow?.accountId, "codex-v-account", "provider metadata must survive adoption");
 			assert.deepEqual(exchangeRows(c), [], "adopting retires the marker it published");
 
 			// A marker whose generation no longer belongs to the row stays inert:
 			// the ordinary exchange runs and the stale bytes are never published.
 			const staleId = await seed(
 				c,
-				expiredCred({ access: "ga-v-stale-0", refresh: "ga-v-stale-r0", projectId: "ga-v-project" }),
+				expiredCred({ access: "ga-v-stale-0", refresh: "ga-v-stale-r0", accountId: "codex-v-stale-account" }),
 				provider,
 			);
 			const stale = seedLegacyExchange(c, staleId, {
 				stale: true,
-				staged: { ...staged, access: "ga-v-stale-staged-access", refresh: "ga-v-stale-staged-refresh" },
+				staged: { ...staged, accountId: "codex-v-stale-account", access: "ga-v-stale-staged-access", refresh: "ga-v-stale-staged-refresh" },
 			});
 			const refreshed = await c.auth.oauth.refresh(staleId);
 			assert.equal(t.tokenPosts, 1, "a stale marker must not suppress the ordinary exchange");
@@ -2998,11 +3103,11 @@ await scenario("(v) a legacy staged replacement is adopted only for the row it w
 });
 
 await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes no journal row", async () => {
-	const provider = "google-antigravity";
+	const provider = "openai-codex";
 	const gate = Promise.withResolvers<void>();
 	const postStarted = Promise.withResolvers<void>();
 	const t = installTransport({
-		tokenMarker: "oauth2.googleapis.com/token",
+		tokenMarker: "auth.openai.com/oauth/token",
 		onTokenPost: () => postStarted.resolve(),
 		token: () => tokenReply("ga-w-owner-access", "ga-w-owner-refresh", { waitFor: gate.promise }),
 	});
@@ -3010,7 +3115,7 @@ await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes 
 		await withCase(async c => {
 			const id = await seed(
 				c,
-				expiredCred({ access: "ga-w-0", refresh: "ga-w-r0", projectId: "ga-w-project" }),
+				expiredCred({ access: "ga-w-0", refresh: "ga-w-r0", accountId: "codex-w-account" }),
 				provider,
 			);
 			const owner = c.auth.oauth.refresh(id);
@@ -3032,7 +3137,7 @@ await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes 
 				access: "ga-w-peer-access",
 				refresh: "ga-w-peer-refresh",
 				expires: Date.now() + 3_600_000,
-				projectId: "ga-w-project",
+				accountId: "codex-w-account",
 			};
 			c.store.updateAuthCredential(id, peerCred);
 
@@ -3053,9 +3158,9 @@ await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes 
 });
 
 await scenario("(x) a staged adoption cannot publish over a lost lease or a replaced row", async () => {
-	const provider = "google-antigravity";
+	const provider = "openai-codex";
 	const t = installTransport({
-		tokenMarker: "oauth2.googleapis.com/token",
+		tokenMarker: "auth.openai.com/oauth/token",
 		token: () => tokenReply("ga-x-fresh-access", "ga-x-fresh-refresh"),
 	});
 	try {
@@ -3084,7 +3189,7 @@ await scenario("(x) a staged adoption cannot publish over a lost lease or a repl
 					access: `ga-x-peer-access-${rowId}`,
 					refresh: `ga-x-peer-refresh-${rowId}`,
 					expires: Date.now() + 3_600_000,
-					projectId: "ga-x-project",
+					accountId: "codex-x-account",
 				});
 				phase = "none";
 				return staged;
@@ -3095,9 +3200,10 @@ await scenario("(x) a staged adoption cannot publish over a lost lease or a repl
 				{ phase: "lease", throws: true },
 			];
 			for (const stage of stages) {
+				if (scopeCase?.startsWith("x-") && scopeCase !== `x-${stage.phase}`) continue;
 				const id = await seed(
 					c,
-					expiredCred({ access: `ga-x-${stage.phase}-0`, refresh: `ga-x-${stage.phase}-r0`, projectId: "ga-x-project" }),
+					expiredCred({ access: `ga-x-${stage.phase}-0`, refresh: `ga-x-${stage.phase}-r0`, accountId: "codex-x-account" }),
 					provider,
 				);
 				const legacy = seedLegacyExchange(c, id, {
@@ -3106,7 +3212,7 @@ await scenario("(x) a staged adoption cannot publish over a lost lease or a repl
 						access: `ga-x-staged-access-${stage.phase}`,
 						refresh: `ga-x-staged-refresh-${stage.phase}`,
 						expires: Date.now() + 3_600_000,
-						projectId: "ga-x-project",
+						accountId: "codex-x-account",
 					},
 				});
 				phase = stage.phase;
@@ -3988,6 +4094,33 @@ if (unexpectedRejections.length > 0) {
 	console.error(`\nFAIL verify-oauth-durable-refresh: unexpected unhandled rejection(s)`);
 	for (const entry of unexpectedRejections) console.error(`  - ${entry}`);
 	process.exit(1);
+}
+
+if (scopeCase) {
+	assert.equal(passedScenarios, 1, "a control must execute exactly its assigned scenario");
+	if (scopeMutation) assert.equal(scopeMutationsLoaded, 1, "the selected runtime mutation must load");
+} else if (!process.argv.some(arg => arg.startsWith("--only="))) {
+	const controls = [
+		["t", "unlock-other-provider"], ["u", "journal-other-provider"],
+		["v", "drop-staged-adoption"], ["v", "adopt-stale-generation"],
+		["w", "publish-before-fence"], ["x-row", "publish-before-fence"],
+		["x-lease", "publish-before-fence"], ["publish", "allow-unpublishable"],
+		...(plan.since("18.18.4") ? [["pause", "unpause-provider"]] : []),
+	];
+	for (const [name, fault] of controls) {
+		const child = Bun.spawnSync([process.execPath, import.meta.path, "--scope-control", name, fault], {
+			env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERSION: plan.version,
+				OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+			timeout: 30_000,
+		});
+		const text = child.stdout.toString() + child.stderr.toString();
+		const red = name === "x-row" ? "row: the concurrent winner is returned, never the staged bytes"
+			: name === "x-lease" ? "lease: the peer's row survives" : scopeFaults[fault].red;
+		assert.notEqual(child.exitCode, 0, `${name}/${fault}: mutation must turn red`);
+		assert.ok(text.includes(`FAIL  ${scopeNames[name.split("-")[0]]}`) && text.includes(red),
+			`${name}/${fault}: mutation must fail at its behavioral observable:\n${text}`);
+		console.log(`  PASS  mutation ${name}/${fault}: child exit ${child.exitCode}; ${red}`);
+	}
 }
 
 console.log(`\nPASS verify-oauth-durable-refresh: ${passedScenarios} scenario(s) ok`);

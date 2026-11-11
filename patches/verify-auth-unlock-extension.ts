@@ -17,6 +17,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM?.trim();
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT?.trim() ?? (NM ? `${NM}/pi-ai` : undefined);
@@ -30,12 +31,15 @@ if (!CATALOG_ROOT || !AI_ROOT) {
 	);
 	process.exit(2);
 }
+const plan = resolvePlan({ gate: "verify-auth-unlock-extension", roots: [AI_ROOT, CATALOG_ROOT] });
 const SHIPPED = resolve(dirname(fileURLToPath(import.meta.url)), "auth-unlock-extension.ts");
 const EXTENSION = process.env.OMP_AUTH_UNLOCK_EXTENSION?.trim() ?? SHIPPED;
-// Providers that must never be advertised or routed: the ones a previous
-// revision protected, one that never had a journal, the 18.16.0 rotating-token
-// arrival, and an unknown name.
-const UNADVERTISED = ["google-antigravity", "openai-codex", "xai-oauth", "mistral", "mcp-remote"];
+// Paused Antigravity no longer proves a usable provider is excluded from the
+// journal; retain its old leg only for plans where that login remains usable.
+const UNADVERTISED = [
+	...(!plan.since("18.18.4") ? ["google-antigravity"] : []),
+	"openai-codex", "xai-oauth", "mistral", "mcp-remote",
+];
 
 /** Token URL a provider's refresh POSTs to: its `refresh { token url=... }`, else the login token URL. */
 function refreshTokenUrl(provider: string): string {
@@ -173,10 +177,15 @@ try {
 	const source = readFileSync(SHIPPED, "utf8");
 	const mutations: Array<{ name: string; from: string; to: string }> = [
 		{
+			name: "protects openai-codex again",
+			from: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",',
+			to: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",\n\t"openai-codex": "https://auth.openai.com/oauth/token",',
+		},
+		...(!plan.since("18.18.4") ? [{
 			name: "protects google-antigravity again",
 			from: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",',
 			to: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",\n\t"google-antigravity": "https://oauth2.googleapis.com/token",',
-		},
+		}] : []),
 		{
 			name: "protects mistral again",
 			from: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",',
@@ -198,6 +207,12 @@ try {
 			stderr: "pipe",
 		});
 		assert.notEqual(run.exitCode, 0, `${mutation.name}: the gate must reject this copy`);
+		if (mutation.name === "protects openai-codex again") {
+			const red = "only the journal-protected provider may be advertised";
+			assert.ok((run.stdout.toString() + run.stderr.toString()).includes(red),
+				"Codex routing mutation must fail at its public completion claim");
+			console.log(`ok  control child exit ${run.exitCode}: ${red}`);
+		}
 		console.log(`ok  mutation rejected: ${mutation.name}`);
 	}
 } finally {

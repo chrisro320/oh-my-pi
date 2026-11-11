@@ -1,0 +1,28 @@
+--- a/pi-tui/src/overlays/advisor-config.ts
++++ b/pi-tui/src/overlays/advisor-config.ts
+@@ -227,7 +227,7 @@
+ /** Choice value for "no per-advisor override"; matches no {@link ADVISOR_SYNC_BACKLOG_MODES} entry. */
+ const SYNC_BACKLOG_INHERIT = "inherit";
+ 
+-/** The tools list's terminal-only "Done" row; the picker applies with its own action instead. */
++/** The tools list's final row, visible in both terminal and native pickers. */
+ const TOOLS_DONE = "__done";
+ 
+ /**
+@@ -712,7 +712,6 @@
+ 				this.#screen === "tools"
+ 					? {
+ 							...props,
+-							items: props.items?.filter(item => item.id !== TOOLS_DONE),
+ 							actions: [
+ 								pickerAction("confirm", "Toggle", "enter"),
+ 								pickerAction("apply", "Apply", "escape", { primary: true, end: true }),
+@@ -1644,7 +1643,7 @@
+ 				icon: "tools",
+ 				noun: "tools",
+ 				current: [...selected],
+-				decorate: item => ({ label: item.value }),
++				decorate: item => ({ label: item.value === TOOLS_DONE ? "Done" : item.value }),
+ 			},
+ 		);
+ 	}

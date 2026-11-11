@@ -62,7 +62,15 @@ const INDEX_STATUSES = {
 	topics: ["open", "completed", "archived"],
 	decisions: ["current", "superseded"],
 };
-const NOTEBOOK_GUIDANCE =
+const INDEX_FORMAT =
+	'Use one ```context-notes-index fenced JSON block with {"version":1,"constraints":[],"topics":[],"decisions":[]}. ' +
+	"Every record needs a stable id and nonempty source. " +
+	`constraints use text and status ${INDEX_STATUSES.constraints.join("|")}; ` +
+	`topics use summary and status ${INDEX_STATUSES.topics.join("|")}; ` +
+	`decisions use summary and status ${INDEX_STATUSES.decisions.join("|")}. ` +
+	"Completed topics use completed, not done/closed/resolved or open. " +
+	"Only constraints/decisions have supersedes; use [] when nothing is superseded. No other keys. ";
+const NOTEBOOK_GUIDANCE = INDEX_FORMAT +
 	"Keep registered IDs and source pointers when shortening notes; retain superseded records and links. " +
 	"Use read/grep on history://current/full when an earlier decision is relevant, a source is needed, or information conflicts. " +
 	"The gate checks structure, not semantic importance, factual accuracy, or whether recall is needed.";

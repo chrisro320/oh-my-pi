@@ -1,0 +1,3532 @@
+--- a/pi-ai/dist/types/auth-broker/remote-store.d.ts
++++ b/pi-ai/dist/types/auth-broker/remote-store.d.ts
+@@ -1,6 +1,5 @@
+ import type { AuthCredentialStore } from "../auth/store.js";
+-import { type AuthCredential, type DisabledCredentialSummary, type OAuthCredential, type OAuthRefreshReason, type StoredAuthCredential, type StoredCredentialBlock } from "../auth/types.js";
+-import type { OAuthCredentials } from "../registry/oauth/types.js";
++import { type AuthCredential, type DisabledCredentialSummary, type OAuthCredential, type OAuthRefreshReason, type RemoteOAuthCredential, type StoredAuthCredential, type StoredCredentialBlock } from "../auth/types.js";
+ import type { Provider } from "../types.js";
+ import type { ClientUsageIdentity, ObservedUsageEntry, UsageReport } from "../usage.js";
+ import { type AuthBrokerClient } from "./client.js";
+@@ -91,13 +90,12 @@
+     deleteCredentialBlocks(credentialId: number): void;
+     cleanExpiredCredentialBlocks(nowMs: number): void;
+     /**
+-     * In-memory update from a successful refresh through the broker. AuthStorage
+-     * calls this after `#replaceCredentialAt`; the broker already persisted the
+-     * authoritative row, so we just mirror it.
++     * Mirror a value-returning caller refresh override after AuthStorage checks
++     * the observed snapshot row. Built-in broker refresh adopts its full reply
++     * directly and never routes through this second publication.
+      */
+     updateAuthCredential(id: number, credential: AuthCredential): void;
+     deleteAuthCredential(id: number, disabledCause: string): Promise<boolean>;
+-    tryDisableAuthCredentialIfMatches(id: number, _expectedData: string, disabledCause: string): boolean;
+     waitForFreshSnapshot(maxWaitMs: number, opts?: {
+         signal?: AbortSignal;
+     }): Promise<boolean>;
+@@ -139,7 +137,7 @@
+      * the broker-redacted credential with {@link REMOTE_REFRESH_SENTINEL} in
+      * the `refresh` slot.
+      */
+-    refreshOAuthCredential(_provider: Provider, credentialId: number, _credential: OAuthCredential, signal?: AbortSignal, reason?: OAuthRefreshReason): Promise<OAuthCredentials>;
++    refreshOAuthCredential(_provider: Provider, credentialId: number, _credential: OAuthCredential, signal?: AbortSignal, reason?: OAuthRefreshReason): Promise<RemoteOAuthCredential>;
+     /**
+      * Store-level hook consumed by `AuthStorage.usage.reports()` — proxies
+      * to the broker's `/v1/usage` endpoint. Shared per-credential caches and
+--- a/pi-ai/dist/types/auth/oauth.d.ts
++++ b/pi-ai/dist/types/auth/oauth.d.ts
+@@ -5,7 +5,7 @@
+ import type { CredentialPool } from "./pool.js";
+ import type { OAuthRefresher } from "./refresh.js";
+ import type { CredentialSelector } from "./select.js";
+-import type { AuthAccountPolicy, AuthApiKeyOptions, AuthCredentialSnapshotEntry, OAuthAccess, OAuthAccessResolution, OAuthAccountIdentity, OAuthAccountSummary, OAuthApi, OAuthCredential, OAuthLoginController, OAuthLoginIdentity, OAuthRefreshByIdOptions, StoredOAuthRefreshOptions, StoredOAuthRefreshResult } from "./types.js";
++import type { AuthAccountPolicy, AuthApiKeyOptions, AuthCredentialSnapshotEntry, OAuthAccess, OAuthAccessResolution, OAuthAccountIdentity, OAuthAccountSummary, OAuthApi, OAuthCredential, OAuthLoginController, OAuthLoginIdentity, OAuthRefreshByIdOptions, OAuthRefreshUnlockInspection, OAuthRefreshUnlockOptions, OAuthRefreshUnlockResult, StoredOAuthRefreshOptions, StoredOAuthRefreshResult } from "./types.js";
+ /** Dependencies used by the OAuth account operations. */
+ export interface OAuthAccountsDeps {
+     pool: CredentialPool;
+@@ -93,4 +93,8 @@
+     refresh(id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions): Promise<AuthCredentialSnapshotEntry>;
+     /** Refresh one stored OAuth credential through the durable ownership path. */
+     refreshStored<T extends OAuthCredential = OAuthCredential>(provider: string, options: StoredOAuthRefreshOptions<T>): Promise<StoredOAuthRefreshResult<T>>;
++    /** Read-only, redacted view of one provider's unresolved refresh exchange. */
++    inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection>;
++    /** Release one fenced unresolved exchange and mint at most one replacement token. */
++    unlockAndRefreshStored(provider: string, options: OAuthRefreshUnlockOptions): Promise<OAuthRefreshUnlockResult>;
+ }
+--- a/pi-ai/dist/types/auth/pool.d.ts
++++ b/pi-ai/dist/types/auth/pool.d.ts
+@@ -214,8 +214,7 @@
+     upsert(provider: string, credential: AuthCredential): Promise<AuthCredentialSnapshotEntry[]>;
+     /**
+      * Find the stored credential id matching a {@link UsageCredential} so the
+-     * refresh override can address the row. Mirrors the matching logic in
+-     * `UsageService.persistRefreshedCredential`.
++     * refresh owner can address the row before awaiting a provider or broker.
+      */
+     findIdForUsageCredential(provider: string, previous: UsageCredential): number | undefined;
+ }
+--- a/pi-ai/dist/types/auth/refresh.d.ts
++++ b/pi-ai/dist/types/auth/refresh.d.ts
+@@ -2,7 +2,7 @@
+ import type { Provider } from "../types.js";
+ import { type CredentialPool } from "./pool.js";
+ import { type AuthCredentialStore } from "./store.js";
+-import { type AuthCredentialSnapshotEntry, type AuthStorageOptions, type OAuthCredential, type OAuthRefreshByIdOptions, type OAuthRefreshReason, type StoredOAuthRefreshOptions, type StoredOAuthRefreshResult } from "./types.js";
++import { type AuthCredentialSnapshotEntry, type AuthStorageOptions, type OAuthCredential, type OAuthRefreshByIdOptions, type OAuthRefreshReason, type OAuthRefreshUnlockInspection, type OAuthRefreshUnlockOptions, type OAuthRefreshUnlockResult, type StoredOAuthRefreshOptions, type StoredOAuthRefreshResult } from "./types.js";
+ /**
+  * Refresh OAuth access tokens this many ms before their stated expiry. The
+  * skew exists so callers downstream of {@link OAuthRefresher} (stream providers,
+@@ -75,5 +75,22 @@
+      * on every successful refresh.
+      */
+     refreshById(id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions): Promise<AuthCredentialSnapshotEntry>;
++    /**
++     * Read-only, redacted view of one provider's unresolved refresh exchange.
++     * Derived from the durable store, never from a log line, so it stays accurate
++     * after the transient-failure cooldown expires. Fails closed: a runtime whose
++     * token exchange is not minted in this process, a broker-sentinel row, and a
++     * store without the exchange journal all report `eligible: false`.
++     */
++    inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection>;
++    /**
++     * Release one fenced unresolved exchange and run at most one native token
++     * exchange, inside the shared owned-refresh path. Order is fixed there:
++     * take the lease, persist a result this process already holds, release the
++     * exact exchange the fence names, then reserve/POST/stage/commit. A peer's
++     * lease is never waited on, the credential row is never disabled from here,
++     * and a failure leaves the row active with a new pending marker.
++     */
++    unlockAndRefreshStored(provider: string, options: OAuthRefreshUnlockOptions): Promise<OAuthRefreshUnlockResult>;
+ }
+ export {};
+--- a/pi-ai/dist/types/auth/sqlite-credential-store.d.ts
++++ b/pi-ai/dist/types/auth/sqlite-credential-store.d.ts
+@@ -6,7 +6,7 @@
+  */
+ import type { Database } from "bun:sqlite";
+ import { isSqliteBusyError, isSqliteCorruptionError } from "@oh-my-pi/pi-utils";
+-import type { AuthCredentialStore, CredentialRefreshLeaseFence, CredentialRefreshLeaseHolder } from "./store.js";
++import type { AuthCredentialStore, CredentialRefreshExchange, CredentialRefreshExchangeInspection, CredentialRefreshLeaseFence, CredentialRefreshLeaseHolder, CredentialRefreshReleaseOutcome } from "./store.js";
+ import type { AuthCredential, DisabledCredentialSummary, OAuthCredential, StoredAuthCredential, StoredCredentialBlock } from "./types.js";
+ import type { OAuthCredentials } from "../registry/oauth/types.js";
+ import type { ClientUsageReport, ClientUsageSummary, UsageHistoryEntry, UsageHistoryQuery } from "../usage.js";
+@@ -92,6 +92,30 @@
+     getCredentialRefreshLeaseHolder(credentialId: number): CredentialRefreshLeaseHolder | undefined;
+     handBackCredentialRefreshLease(credentialId: number, owner: string, holder: CredentialRefreshLeaseHolder): boolean;
+     releaseCredentialRefreshLease(credentialId: number, owner: string): void;
++    reserveCredentialRefreshExchange(id: number, expectedData: string, lease: CredentialRefreshLeaseFence): CredentialRefreshExchange | undefined;
++    stageCredentialRefreshResult(id: number, expectedData: string, owner: string, credential: OAuthCredential): boolean;
++    commitCredentialRefreshResult(id: number, expectedData: string, credential: OAuthCredential, lease: CredentialRefreshLeaseFence): boolean;
++    /**
++     * Read-only, redacted inspection of one row's exchange. Never mutates, and
++     * never returns token bytes; the fence it hands back is the only value the
++     * release accepts.
++     */
++    inspectUnresolvedCredentialRefreshExchange(id: number): CredentialRefreshExchangeInspection;
++    readStagedCredentialRefreshResult(id: number, expectedData: string): OAuthCredential | undefined;
++    /**
++     * Retire one unresolved exchange when the caller holds the row's refresh
++     * lease, the row is byte-identical to `expectedData`, and `fence` still
++     * matches the exchange. Never disables, deletes or rewrites the credential
++     * row; a staged replacement is reported instead of released so the ordinary
++     * path can publish it without another exchange.
++     */
++    releaseUnresolvedCredentialRefreshExchange(id: number, expectedData: string, fence: string, lease: CredentialRefreshLeaseFence): CredentialRefreshReleaseOutcome;
++    /**
++     * Delete this exchange's pending marker when its outcome is KNOWN to be a
++     * rejection: fenced on the reservation identity (generation, expected hash,
++     * reserving owner), never a staged replacement, never the credential row.
++     */
++    dischargeCredentialRefreshExchange(id: number, expectedData: string, owner: string): boolean;
+     recordUsageSnapshots(entries: UsageHistoryEntry[]): void;
+     listUsageHistory(query?: UsageHistoryQuery): UsageHistoryEntry[];
+     recordClientUsage(report: ClientUsageReport): void;
+--- a/pi-ai/dist/types/auth/store.d.ts
++++ b/pi-ai/dist/types/auth/store.d.ts
+@@ -1,4 +1,3 @@
+-import type { OAuthCredentials } from "../registry/oauth/types.js";
+ import type { Provider } from "../types.js";
+ import type { ClientUsageIdentity, ClientUsageReport, ClientUsageSummary, ObservedUsageEntry, UsageHistoryEntry, UsageHistoryQuery, UsageReport } from "../usage.js";
+ import type { AuthCredential, DisabledCredentialSummary, OAuthCredential, OAuthRefreshReason, StoredAuthCredential, StoredCredentialBlock } from "./types.js";
+@@ -39,7 +38,13 @@
+      * Remote stores await broker persistence before updating their snapshot.
+      */
+     deleteAuthCredential(id: number, disabledCause: string): Promise<boolean>;
+-    tryDisableAuthCredentialIfMatches(id: number, expectedData: string, disabledCause: string, lease?: CredentialRefreshLeaseFence): boolean;
++    /**
++     * Automatic disable is an authoritative-store capability: compare the full
++     * row and optional owner fence before disabling. Remote mirrors omit it;
++     * their durable broker owner handles genuine grant failure during refresh.
++     * Absence never authorizes an unconditional delete fallback.
++     */
++    tryDisableAuthCredentialIfMatches?(id: number, expectedData: string, disabledCause: string, lease?: CredentialRefreshLeaseFence): boolean;
+     tryUpdateAuthCredentialIfMatches?(id: number, expectedData: string, credential: AuthCredential, lease?: CredentialRefreshLeaseFence): boolean;
+     /**
+      * Replace all active rows for a provider (e.g. API-key login replacing an
+@@ -110,6 +115,72 @@
+     owner: string;
+     expiresAtMs: number;
+ }
++/** A pending generation is never sent again; only a staged replacement can recover it. */
++export type CredentialRefreshExchange = {
++    status: "reserved";
++} | {
++    status: "pending";
++    credential?: OAuthCredential;
++};
++/**
++ * Why an exchange cannot be released. `"pending"` is the only releasable state;
++ * every other value is a refusal the caller can show without touching the row.
++ */
++export type CredentialRefreshExchangeReason = "pending" | "no-row" | "not-oauth" | "row-disabled" | "no-exchange" | "staged-replacement";
++/** Read-only, redacted view of one row's durable refresh exchange. */
++export interface CredentialRefreshExchangeInspection {
++    /** True only when an unresolved exchange exists with nothing else blocking its release. */
++    eligible: boolean;
++    /** `"pending"` is the only eligible reason; every other value names the refusal. */
++    reason: CredentialRefreshExchangeReason;
++    /** Opaque fence the release must present; present only when `eligible`. */
++    fence?: string;
++    /** Access-token expiry (ms) of the row, for display; never the token. */
++    expiresAt?: number;
++}
++/** Outcome of a fenced release attempt. Only `"released"` removed the exchange. */
++export type CredentialRefreshReleaseOutcome = "released" | "not-pending" | "staged-replacement-present" | "row-changed" | "fence-mismatch" | "lease-not-held";
++/** Durable exchange journal, separate from expiring write ownership and ordinary credential rows. */
++export interface CredentialRefreshExchangeStore {
++    /** Atomically reserve a future exchange or read its prior outcome. Undefined means the row/lease changed. */
++    reserveCredentialRefreshExchange(id: number, expectedData: string, lease: CredentialRefreshLeaseFence): CredentialRefreshExchange | undefined;
++    /** Only the original exchange owner may stage a result, even after its write lease expires. Never updates credentials. */
++    stageCredentialRefreshResult(id: number, expectedData: string, owner: string, credential: OAuthCredential): boolean;
++    /** Publish a staged result and retire its reservation atomically, fenced by the current row and write owner. */
++    commitCredentialRefreshResult(id: number, expectedData: string, credential: OAuthCredential, lease: CredentialRefreshLeaseFence): boolean;
++    /**
++     * Read-only, redacted inspection of one row's exchange. Never mutates, and
++     * never returns token bytes; the fence it hands back is the only value the
++     * release accepts.
++     */
++    inspectUnresolvedCredentialRefreshExchange(id: number): CredentialRefreshExchangeInspection;
++    /**
++     * Read-only recovery of a replacement staged for exactly this generation and
++     * row bytes. Never writes: a pending marker, another generation or a rewritten
++     * row yields undefined, so a caller outside the journal protocol can adopt a
++     * still-valid minted result without creating a new exchange.
++     */
++    readStagedCredentialRefreshResult(id: number, expectedData: string): OAuthCredential | undefined;
++    /**
++     * Retire one unresolved exchange when the caller holds the row's refresh
++     * lease and the row is byte-identical to `expectedData`. A staged
++     * replacement is reported instead of released (publishing it never deletes
++     * the marker, so no fence is required for that report); otherwise `fence`
++     * must still match the exchange. On success the released marker is replaced
++     * by the caller's own reservation in the same transaction, so the generation
++     * is never left unattested, and the caller continues from `"reserved"`
++     * without a second reservation. Never disables, deletes or rewrites the
++     * credential row.
++     */
++    releaseUnresolvedCredentialRefreshExchange(id: number, expectedData: string, fence: string, lease: CredentialRefreshLeaseFence): CredentialRefreshReleaseOutcome;
++    /**
++     * Delete this exchange's pending marker when its outcome is KNOWN to be a
++     * rejection rather than an ambiguity. Fenced on the reservation identity —
++     * generation, expected hash and the reserving owner — and never touches a
++     * staged replacement or the credential row.
++     */
++    dischargeCredentialRefreshExchange?(id: number, expectedData: string, owner: string): boolean;
++}
+ /** Usage history and client-observed request accounting. */
+ export interface UsageLedgerStore {
+     /**
+@@ -144,13 +215,14 @@
+      *
+      * Precedence: `AuthStorageOptions.refreshOAuthCredential` > this hook > local.
+      *
+-     * `signal` propagates the agent's cancel (ESC, request abort, …) all the
+-     * way to the broker fetch so a hung connection can't strand the caller
+-     * for `timeoutMs * (maxRetries + 1)`.
+-     * `reason` distinguishes provider-auth recovery from generic/MCP refreshes
+-     * that must always mint a new access token.
++     * Returns the authoritative complete OAuth row, including intentional field
++     * absence, and updates the store snapshot before resolving. Callers must
++     * project that row instead of merging their pre-refresh metadata.
++     * `signal` bounds the shared refresh operation, not an individual waiter's
++     * cancellation. `reason` distinguishes provider-auth recovery from
++     * generic/MCP refreshes that must always mint a new access token.
+      */
+-    refreshOAuthCredential(provider: Provider, credentialId: number, credential: OAuthCredential, signal?: AbortSignal, reason?: OAuthRefreshReason): Promise<OAuthCredentials>;
++    refreshOAuthCredential(provider: Provider, credentialId: number, credential: OAuthCredential, signal?: AbortSignal, reason?: OAuthRefreshReason): Promise<OAuthCredential>;
+     /**
+      * Optional async pre-read hook invoked after AuthStorage selects a stored
+      * credential but before it returns that credential for an outbound request.
+@@ -218,7 +290,9 @@
+  * Concrete implementations are {@link SqliteAuthCredentialStore} and the broker's
+  * `RemoteAuthCredentialStore`.
+  */
+-export interface AuthCredentialStore extends CredentialRowStore, CredentialCacheStore, Partial<CredentialBlockStore>, Partial<CredentialRefreshLeaseStore>, Partial<UsageLedgerStore>, Partial<CredentialUpstream> {
++export interface AuthCredentialStore extends CredentialRowStore, CredentialCacheStore, Partial<CredentialBlockStore>, Partial<CredentialRefreshLeaseStore>, Partial<CredentialRefreshExchangeStore>, Partial<UsageLedgerStore>, Partial<CredentialUpstream> {
+ }
+ /** Narrow stores that implement the complete durable refresh-lease concern. */
+ export declare function hasRefreshLeases(store: AuthCredentialStore): store is AuthCredentialStore & CredentialRefreshLeaseStore;
++/** Local token exchanges require the whole journal contract, not just a lease. */
++export declare function hasRefreshExchanges(store: AuthCredentialStore): store is AuthCredentialStore & CredentialRefreshLeaseStore & CredentialRefreshExchangeStore;
+--- a/pi-ai/dist/types/auth/types.d.ts
++++ b/pi-ai/dist/types/auth/types.d.ts
+@@ -321,6 +321,14 @@
+      * Must return updated {@link OAuthCredentials} with at least `access` and
+      * `expires`. `refresh` may be an opaque sentinel (e.g. `"__remote__"`) when
+      * the actual refresh token never leaves the broker.
++     * AuthStorage publishes the returned value only while the observed full row
++     * still matches; a concurrent replacement or logout wins instead. An override
++     * need not mutate the store snapshot itself.
++     *
++     * Local overrides run after durable generation reservation. Perform one grant
++     * attempt only: transport errors/timeouts cannot authorize replay of that grant.
++     * Return a received replacement even if the owner signal has since timed out;
++     * storage stages late results for recovery under a new write lease.
+      */
+     refreshOAuthCredential?: (provider: Provider, credentialId: number, credential: OAuthCredential, signal?: AbortSignal, reason?: OAuthRefreshReason) => Promise<OAuthCredentials>;
+     /**
+@@ -579,20 +587,50 @@
+     canRefresh?: (credential: T) => boolean;
+     refreshSkewMs?: number;
+     signal?: AbortSignal;
++    /** Re-read the current row on failure; never revive a removed row or authorize an unresolved generation's redemption. */
+     keepCredentialOnRefreshFailure?: boolean | ((error: unknown) => boolean);
+     onRefreshFailure?: (error: unknown) => void;
+     /** How long the caller waits (for the lease and the exchange); the exchange itself runs on until its backstop. */
+     refreshTimeoutMs?: number;
++    /**
++     * One admitted exchange. Local rows require durable exchange storage; once
++     * invoked, failure is conservatively ambiguous unless a replacement is known.
++     * Validate refresh prerequisites with canRefresh before reservation. Caller
++     * cancellation owns only its wait after admission, not this bounded operation.
++     * Broker-sentinel rows delegate to oauth.refresh(), which publishes the
++     * authoritative row; their callback result is not merged or persisted again.
++     */
+     refresh: (credential: T, signal?: AbortSignal) => Promise<OAuthCredentials>;
++    /** Applied only to locally owned/value-returning exchanges, never an already-published broker row. */
+     mergeRefreshedCredential?: (credential: T, refreshed: OAuthCredentials) => T;
+     isDefinitiveFailure?: (error: unknown) => boolean;
++    /**
++     * Advisory exchange (a background usage poll). It keeps the journal's
++     * lost-outcome protection, but a provider reply that definitively rejects the
++     * grant is a KNOWN outcome: its pending marker is discharged instead of being
++     * left to refuse the next interactive refresh. The row is never disabled from
++     * here — an interactive request still owns that decision.
++     */
++    advisory?: boolean;
+     disabledCause?: (error: unknown) => string;
++    /**
++     * Explicit unresolved-exchange unlock. The caller supplies the fence captured
++     * before confirmation; the shared owned path persists a held result first,
++     * then releases that exact exchange, then runs at most one local refresh.
++     * Refuses instead of waiting when a peer holds the row lease, and never
++     * disables the credential.
++     */
++    unlock?: {
++        fence: string;
++    };
+ }
+ /** Result of a stored OAuth refresh attempt. */
+ export interface StoredOAuthRefreshResult<T extends OAuthCredential = OAuthCredential> {
+     credential: T | undefined;
+     refreshed: boolean;
+     removed: boolean;
++    /** Verdict for the requested unlock; absent on an ordinary refresh. */
++    unlock?: StoredOAuthRefreshUnlockVerdict;
+ }
+ /** A saved-reset option bound to one provider and durable stored credential. */
+ export interface ResetCreditTarget {
+@@ -998,6 +1036,46 @@
+     /** The access token a provider 401 rejected; see {@link AuthApiKeyOptions.rejectedAccessToken}. */
+     rejectedAccess?: string;
+ }
++/**
++ * Why one provider's OAuth refresh cannot be unlocked from this process.
++ * `"pending"` is the only eligible reason; the rest are refusals the caller
++ * reports without touching the credential store.
++ */
++export type OAuthRefreshUnlockReason = "pending" | "no-credential" | "credential-disabled" | "no-exchange" | "staged-replacement" | "remote-credential" | "unsupported-store" | "delegated-runtime" | "not-applicable";
++/** Redacted, read-only view of whether one provider's unresolved refresh can be unlocked here. */
++export interface OAuthRefreshUnlockInspection {
++    /** True only when a durable unresolved exchange exists and this process may release it. */
++    eligible: boolean;
++    /** Machine-readable state; `"pending"` is the only eligible value. */
++    reason: OAuthRefreshUnlockReason;
++    /** Row id the state describes, when an active OAuth row exists. */
++    credentialId?: number;
++    /** Access-token expiry (ms) of that row, for display; never the token. */
++    expiresAt?: number;
++    /** Opaque fence the release must present; present only when `eligible`. */
++    fence?: string;
++    /** True when THIS process holds a minted result it could not persist for that row. */
++    holdsUnstagedResult: boolean;
++}
++/** Options for {@link OAuthApi.unlockAndRefreshStored}. */
++export interface OAuthRefreshUnlockOptions {
++    /** Fence captured from {@link OAuthApi.inspectUnresolvedRefresh} before the user confirmed. */
++    fence: string;
++    signal?: AbortSignal;
++}
++/** Result of one explicit unlock attempt. Never contains token bytes. */
++export interface OAuthRefreshUnlockResult {
++    outcome: "refreshed" | "nothing-to-unlock" | "fence-mismatch" | "staged-result-recovered" | "failed" | "not-applicable";
++    /** New access-token expiry (ms) for `refreshed` and `staged-result-recovered`. */
++    expiresAt?: number;
++    /** Explanation for `failed`/`fence-mismatch`/`not-applicable`; never contains token bytes. */
++    error?: string;
++}
++/** Verdict the shared owned-refresh path reports back to an unlock caller. */
++export interface StoredOAuthRefreshUnlockVerdict {
++    outcome: OAuthRefreshUnlockResult["outcome"];
++    error?: string;
++}
+ /** OAuth login, access, account identity, and refresh operations. */
+ export interface OAuthApi {
+     /**
+@@ -1082,8 +1160,30 @@
+     refresh(id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions): Promise<AuthCredentialSnapshotEntry>;
+     /**
+      * Refresh one stored OAuth credential under durable row ownership.
++     * Local exchanges reserve their token generation before dispatch and persist
++     * a replacement before returning it. Unknown outcomes require recovery or
++     * sign-in, even after lease expiry; existing rows are not reclassified on startup.
+      */
+     refreshStored<T extends OAuthCredential = OAuthCredential>(provider: string, options: StoredOAuthRefreshOptions<T>): Promise<StoredOAuthRefreshResult<T>>;
++    /**
++     * Read-only, redacted inspection of one provider's durable refresh exchange.
++     * Reports whether an unresolved exchange can be released by THIS process and
++     * hands back the opaque fence the release must present. Local minting
++     * runtimes only: remote/broker-backed and delegated refreshers, rows whose
++     * refresh token lives in the broker, and stores without the exchange journal
++     * all report `eligible: false` with a reason. Never returns tokens.
++     */
++    inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection>;
++    /**
++     * Release one fenced unresolved exchange and run at most one native token
++     * exchange in the same lease, inside the shared owned-refresh path. A minted
++     * result this process already holds is persisted and published first, with no
++     * second POST; a staged replacement is published the same way. The fence is
++     * checked transactionally, so a stale confirmation (a replaced marker, a peer
++     * rotation, or a newer same-generation attempt) is refused. Never disables or
++     * deletes the credential row, and never waits for a peer-owned lease.
++     */
++    unlockAndRefreshStored(provider: string, options: OAuthRefreshUnlockOptions): Promise<OAuthRefreshUnlockResult>;
+ }
+ /**
+  * Handle for one {@link SessionsApi.restrict} call. {@link SessionsApi.unrestrict}
+--- a/pi-ai/dist/types/auth/usage.d.ts
++++ b/pi-ai/dist/types/auth/usage.d.ts
+@@ -1,4 +1,3 @@
+-import type { OAuthCredentials } from "../registry/oauth/types.js";
+ import type { Provider } from "../types.js";
+ import type { ClientUsageReport, ClientUsageSummary, UsageCredential, UsageHistoryEntry, UsageHistoryQuery, UsageLogger, UsageProvider, UsageReport } from "../usage.js";
+ import type { SessionAffinity } from "./affinity.js";
+@@ -12,8 +11,6 @@
+ import type { AuthCredential, OAuthCredential, ObservedUsageInput, UsageApi } from "./types.js";
+ /** Convert an OAuth usage credential into a refreshable stored shape; used by probes and health. */
+ export declare function buildRefreshableOauthCredential(credential: UsageCredential): OAuthCredential | null;
+-/** Merge refreshed OAuth tokens and identity into a usage credential; used by probes and health. */
+-export declare function mergeRefreshedUsageCredential(credential: UsageCredential, refreshed: OAuthCredentials): UsageCredential;
+ /** Dependencies for usage fetching and cache coordination; supplied by AuthStorage. */
+ export interface UsageServiceDeps {
+     store: AuthCredentialStore;
+@@ -73,8 +70,6 @@
+     adoptRuntimeProviders(previous: UsageService): void;
+     /** Remove a runtime usage provider override and restore configured/default resolution. */
+     removeProvider(provider: Provider): void;
+-    /** Preserve the persisted OAuth row's login anchor and subtype metadata on usage-path refresh. */
+-    persistRefreshedCredential(provider: Provider, previous: UsageCredential, next: UsageCredential, credentialId?: number | undefined): void;
+     /**
+      * Recorded usage-limit snapshots, oldest first. Empty when the underlying
+      * store has no durable history (e.g. a broker-backed remote store).
+--- a/pi-ai/dist/types/registry/oauth/anthropic.d.ts
++++ b/pi-ai/dist/types/registry/oauth/anthropic.d.ts
+@@ -23,10 +23,8 @@
+ /** Fetches the signed-in account/org identity Claude Code's CLI bootstrap reports. */
+ export declare function fetchAnthropicBootstrapIdentity(accessToken: string, fetchImpl: FetchImpl): Promise<AnthropicIdentity>;
+ /**
+- * `anthropic-identity` hook: fills account (and, at login only, organization)
+- * identity from the bootstrap endpoint when the token response left it
+- * unset. The org an access token is scoped to is captured once at login and
+- * deliberately never refreshed — rewriting identity during background
+- * refreshes could silently re-key stored credentials.
++ * Resolve account/organization identity at login only. Optional bootstrap work
++ * must never delay persistence after a refresh token has already been rotated.
++ * Refresh preserves stored account identity; organization scope stays fixed.
+  */
+ export declare const anthropicIdentityHook: AfterExchangeHook;
+--- a/pi-ai/src/auth-broker/remote-store.ts
++++ b/pi-ai/src/auth-broker/remote-store.ts
+@@ -23,7 +23,6 @@
+ 	type StoredCredentialBlock,
+ } from "../auth/types";
+ import * as AIError from "../error";
+-import type { OAuthCredentials } from "../registry/oauth/types";
+ import type { Provider } from "../types";
+ import type { ClientUsageIdentity, ObservedUsageEntry, UsageReport } from "../usage";
+ import { raceSignal } from "../auth/abort";
+@@ -909,9 +908,9 @@
+ 	}
+ 
+ 	/**
+-	 * In-memory update from a successful refresh through the broker. AuthStorage
+-	 * calls this after `#replaceCredentialAt`; the broker already persisted the
+-	 * authoritative row, so we just mirror it.
++	 * Mirror a value-returning caller refresh override after AuthStorage checks
++	 * the observed snapshot row. Built-in broker refresh adopts its full reply
++	 * directly and never routes through this second publication.
+ 	 */
+ 	updateAuthCredential(id: number, credential: AuthCredential): void {
+ 		this.#noteActivity();
+@@ -933,17 +932,6 @@
+ 		return true;
+ 	}
+ 
+-	tryDisableAuthCredentialIfMatches(id: number, _expectedData: string, disabledCause: string): boolean {
+-		this.#noteActivity();
+-		const found = this.#snapshot.credentials.find(entry => entry.id === id);
+-		if (!found) return false;
+-		this.#removeCredentialById(id);
+-		void this.#client.disableCredential(id, disabledCause).catch(error => {
+-			logger.warn("auth-broker disable propagation failed", { id, error: String(error) });
+-		});
+-		return true;
+-	}
+-
+ 	async waitForFreshSnapshot(maxWaitMs: number, opts: { signal?: AbortSignal } = {}): Promise<boolean> {
+ 		this.#noteActivity();
+ 		const previousGeneration = this.#generation;
+@@ -1310,23 +1298,21 @@
+ 		_credential: OAuthCredential,
+ 		signal?: AbortSignal,
+ 		reason?: OAuthRefreshReason,
+-	): Promise<OAuthCredentials> {
++	): Promise<RemoteOAuthCredential> {
+ 		this.#noteActivity();
+-		const refreshed = await this.#refreshThroughBroker(credentialId, signal, reason);
++		await this.#refreshThroughBroker(credentialId, signal, reason);
+ 		if (!this.#streamingActive) {
+ 			await this.refreshSnapshot().catch(error => {
+ 				logger.debug("auth-broker snapshot refresh after credential refresh failed", { error: String(error) });
+ 			});
+ 		}
+-		return {
+-			access: refreshed.access,
+-			refresh: REMOTE_REFRESH_SENTINEL,
+-			expires: refreshed.expires,
+-			accountId: refreshed.accountId,
+-			email: refreshed.email,
+-			projectId: refreshed.projectId,
+-			enterpriseUrl: refreshed.enterpriseUrl,
+-		};
++		// A snapshot update may have won while the refresh request was pending.
++		// Preserve its complete row, including fields deliberately removed.
++		const current = this.#snapshot.credentials.find(entry => entry.id === credentialId)?.credential;
++		if (current?.type !== "oauth") {
++			throw new AIError.AuthBrokerError(`Credential id=${credentialId} was removed during refresh`);
++		}
++		return current;
+ 	}
+ 
+ 	/**
+--- a/pi-ai/src/auth/health.ts
++++ b/pi-ai/src/auth/health.ts
+@@ -27,10 +27,10 @@
+ 	ModelUsageHealth,
+ 	ModelUsageHealthOptions,
+ } from "./types";
+-import { buildRefreshableOauthCredential, mergeRefreshedUsageCredential } from "./usage";
++import { buildRefreshableOauthCredential } from "./usage";
+ import type { UsageService } from "./usage";
+ import { REMOTE_REFRESH_SENTINEL } from "./types";
+-import { oauthUsageRequest, usageCacheIdentity, usageRequest } from "./usage-cache";
++import { buildUsageCredential, oauthUsageRequest, usageCacheIdentity, usageRequest } from "./usage-cache";
+ import type { UsageRequestDescriptor } from "./usage-cache";
+ import { isUsageLimitExhausted, reserveUsageLimits, usageReportMetadataValue } from "./usage-report";
+ 
+@@ -342,19 +342,25 @@
+ 				const refreshable = buildRefreshableOauthCredential(initialRequest.credential);
+ 				if (refreshable) {
+ 					try {
+-						const refreshed = await this.#deps.refresher.refresh(
++						await this.#deps.refresher.refresh(
+ 							row.provider as Provider,
+ 							refreshable,
+ 							row.id,
+ 							probeSignal,
+ 						);
+-						const refreshedCredential = mergeRefreshedUsageCredential(initialRequest.credential, refreshed);
+-						this.#deps.usage.persistRefreshedCredential(
+-							row.provider as Provider,
+-							initialRequest.credential,
+-							refreshedCredential,
+-							row.id,
+-						);
++						const latest = this.#deps.store.listAuthCredentials(row.provider)
++							.find(candidate => candidate.id === row.id)?.credential;
++						if (latest?.type !== "oauth") {
++							base.reason = "credential removed or changed during refresh";
++							results.push(base);
++							continue;
++						}
++						const refreshedCredential = buildUsageCredential(latest);
++						base.email = latest.email;
++						base.accountId = latest.accountId;
++						base.orgId = latest.orgId;
++						base.orgName = latest.orgName;
++						base.remoteRefresh = latest.refresh === REMOTE_REFRESH_SENTINEL ? true : undefined;
+ 						params = {
+ 							...params,
+ 							credential: refreshedCredential,
+@@ -378,7 +384,7 @@
+ 			const providerImpl = this.#deps.usage.providerFor(row.provider as Provider);
+ 			if (!providerImpl) {
+ 				base.reason = `no usage probe configured for provider ${row.provider}`;
+-			} else if (providerImpl.supports && !providerImpl.supports(initialRequest)) {
++			} else if (providerImpl.supports && !providerImpl.supports(params)) {
+ 				base.reason = `usage probe does not support ${cred.type} credentials for ${row.provider}`;
+ 			} else if (providerImpl.validatesCredentials === false) {
+ 				base.reason = `usage probe for ${row.provider} does not validate credentials`;
+--- a/pi-ai/src/auth/oauth.ts
++++ b/pi-ai/src/auth/oauth.ts
+@@ -23,6 +23,9 @@
+ 	OAuthLoginController,
+ 	OAuthLoginIdentity,
+ 	OAuthRefreshByIdOptions,
++	OAuthRefreshUnlockInspection,
++	OAuthRefreshUnlockOptions,
++	OAuthRefreshUnlockResult,
+ 	StoredOAuthRefreshOptions,
+ 	StoredOAuthRefreshResult,
+ } from "./types";
+@@ -377,4 +380,14 @@
+ 	): Promise<StoredOAuthRefreshResult<T>> {
+ 		return this.#deps.refresher.refreshStored(provider, options);
+ 	}
++
++	/** Read-only, redacted view of one provider's unresolved refresh exchange. */
++	inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection> {
++		return this.#deps.refresher.inspectUnresolvedRefresh(provider);
++	}
++
++	/** Release one fenced unresolved exchange and mint at most one replacement token. */
++	unlockAndRefreshStored(provider: string, options: OAuthRefreshUnlockOptions): Promise<OAuthRefreshUnlockResult> {
++		return this.#deps.refresher.unlockAndRefreshStored(provider, options);
++	}
+ }
+--- a/pi-ai/src/auth/pool.ts
++++ b/pi-ai/src/auth/pool.ts
+@@ -297,20 +297,17 @@
+ 			grouped.set(record.provider, list);
+ 		}
+ 
+-		const dedupedGrouped = new Map<string, StoredCredential[]>();
+-		for (const [provider, entries] of grouped.entries()) {
+-			const deduped = await this.pruneDuplicates(provider, entries);
++		// Reload is a read boundary, including startup and broker discovery.
++		// Deduplication belongs to explicit credential writes, never observation.
++		for (const [provider, entries] of grouped) {
+ 			this.#options.policies.validateFor(
+ 				provider,
+-				deduped.map(entry => entry.credential),
++				entries.map(entry => entry.credential),
+ 			);
+-			if (deduped.length > 0) {
+-				dedupedGrouped.set(provider, deduped);
+-			}
+ 		}
+ 
+ 		const removedProviders = new Set(this.#data.keys());
+-		for (const [provider, entries] of dedupedGrouped) {
++		for (const [provider, entries] of grouped) {
+ 			this.replace(provider, entries);
+ 			removedProviders.delete(provider);
+ 		}
+@@ -461,7 +458,7 @@
+ 		const target = entries[index];
+ 		const serialized = serializeCredential(provider, expectedCredential);
+ 		if (!serialized) return false;
+-		const disabled = this.#store.tryDisableAuthCredentialIfMatches(target.id, serialized.data, disabledCause);
++		const disabled = this.#store.tryDisableAuthCredentialIfMatches?.(target.id, serialized.data, disabledCause) ?? false;
+ 		if (!disabled) return false;
+ 		const updated = entries.filter((_value, idx) => idx !== index);
+ 		this.replace(provider, updated);
+@@ -806,8 +803,7 @@
+ 
+ 	/**
+ 	 * Find the stored credential id matching a {@link UsageCredential} so the
+-	 * refresh override can address the row. Mirrors the matching logic in
+-	 * `UsageService.persistRefreshedCredential`.
++	 * refresh owner can address the row before awaiting a provider or broker.
+ 	 */
+ 	findIdForUsageCredential(provider: string, previous: UsageCredential): number | undefined {
+ 		const entries = this.entries(provider);
+--- a/pi-ai/src/auth/refresh.ts
++++ b/pi-ai/src/auth/refresh.ts
+@@ -9,8 +9,11 @@
+ import { resolveCredentialIdentityKey, serializeCredential } from "./sqlite-credential-store";
+ import {
+ 	type AuthCredentialStore,
++	type CredentialRefreshExchangeInspection,
++	type CredentialRefreshExchangeStore,
+ 	type CredentialRefreshLeaseHolder,
+ 	type CredentialRefreshLeaseStore,
++	hasRefreshExchanges,
+ 	hasRefreshLeases,
+ } from "./store";
+ import {
+@@ -21,8 +24,13 @@
+ 	type OAuthRefreshByIdOptions,
+ 	type OAuthRefreshReason,
+ 	type StoredAuthCredential,
++	type OAuthRefreshUnlockInspection,
++	type OAuthRefreshUnlockOptions,
++	type OAuthRefreshUnlockResult,
++	type OAuthRefreshUnlockReason,
+ 	type StoredOAuthRefreshOptions,
+ 	type StoredOAuthRefreshResult,
++	type StoredOAuthRefreshUnlockVerdict,
+ } from "./types";
+ 
+ /**
+@@ -90,6 +98,28 @@
+ 
+ type LeasedExchangeOutcome<T extends OAuthCredential> = { result: StoredOAuthRefreshResult<T> } | { failure: unknown };
+ 
++/**
++ * Durable unknown-outcome replay protection is intentionally limited to
++ * Anthropic: a local exchange for this provider reserves its token generation,
++ * refuses to replay one whose outcome is unknown, and stages its result.
++ * Every other provider keeps the ordinary lease + CAS refresh and never creates
++ * that state. A journal entry left by an earlier revision is therefore not a
++ * fence for any other provider: a pending one is ignored (the row refreshes
++ * normally, under the ordinary lease) and a staged replacement is still adopted
++ * read-only so an already-minted token is not re-sent.
++ */
++/**
++ * The one RFC 6749 `error` code that means "this grant was refused": the provider
++ * answered and rejected the refresh token itself. Every other parsed code
++ * (`invalid_client`, `invalid_request`, `unauthorized_client`, …) leaves the
++ * marker, because none of them proves the generation is unusable — and 18.12.6's
++ * free-text list also reached `invalid_token`/`revoked`, which never arrive as a
++ * parsed grant rejection.
++ */
++const GRANT_REJECTION_ERROR = "invalid_grant";
++
++const DURABLE_EXCHANGE_PROVIDER = "anthropic";
++
+ type OrganizationScope = Pick<
+ 	OAuthCredentials,
+ 	"orgId" | "region" | "inferenceRegion" | "activeOrganizationId" | "orgName"
+@@ -156,6 +186,8 @@
+ 	#pendingRefreshes = new Set<Promise<unknown>>();
+ 	#cancelRefreshCleanup?: () => void;
+ 	#shuttingDown = false;
++	/** Keep a known result in memory if staging fails; retry persistence, never its token exchange. */
++	#unstagedResults = new Map<number, { expectedData: string; owner: string; credential: OAuthCredential }>();
+ 
+ 	constructor(deps: OAuthRefresherDeps) {
+ 		this.#deps = deps;
+@@ -245,23 +277,68 @@
+ 	}
+ 
+ 	/**
++	 * Retire the journal reservation this attempt made for `expectedData`, under
++	 * whoever holds the row's lease right now. Only an unresolved, unstaged marker
++	 * is released: a staged replacement is recoverable and stays, and a marker for
++	 * another generation or a rewritten row is not this attempt's to touch.
++	 */
++	#retireExchangeReservation(
++		exchangeStore: CredentialRefreshExchangeStore,
++		credentialId: number,
++		expectedData: string,
++		owner: string,
++	): void {
++		try {
++			const inspection = exchangeStore.inspectUnresolvedCredentialRefreshExchange(credentialId);
++			if (!inspection.eligible || inspection.fence === undefined) return;
++			const outcome = exchangeStore.releaseUnresolvedCredentialRefreshExchange(
++				credentialId,
++				expectedData,
++				inspection.fence,
++				{ owner, nowMs: Date.now() },
++			);
++			if (outcome === "fence-mismatch" || outcome === "lease-not-held") {
++				logger.warn("OAuth refresh could not retire its exchange reservation", { credentialId, outcome });
++			}
++		} catch (error) {
++			// A busy store only postpones this: the marker then stays as it was, which
++			// is the same "outcome unknown" state the next refresher must respect.
++			logger.warn("OAuth refresh could not retire its exchange reservation", { credentialId, error: String(error) });
++		}
++	}
++
++	/**
+ 	 * Give up a lease this refresher holds without having saved a token. A lease
+ 	 * taken over from a stalled refresher goes back to it, because that refresher
+ 	 * may still be saving: releasing it would leave the next refresher no owner,
+ 	 * and it would disable a login that may live. Any other lease is released.
++	 * A journal reservation this attempt made is retired on the same exit, so the
++	 * marker never outlives the ownership that justified it.
+ 	 */
+ 	async #leaveLease(
+ 		leaseStore: CredentialRefreshLeaseStore,
+ 		credentialId: number,
+ 		owner: string,
+ 		takenOverFrom: CredentialRefreshLeaseHolder | undefined,
++		exchange: { store: CredentialRefreshExchangeStore; expectedData: string } | undefined,
+ 	): Promise<void> {
+ 		if (!takenOverFrom) {
++			if (exchange) this.#retireExchangeReservation(exchange.store, credentialId, exchange.expectedData, owner);
+ 			leaseStore.releaseCredentialRefreshLease(credentialId, owner);
+ 			return;
+ 		}
+ 		try {
+-			await this.#handBackLease(leaseStore, credentialId, owner, takenOverFrom);
++			const handedBack = await this.#handBackLease(leaseStore, credentialId, owner, takenOverFrom);
++			// The reservation is owner-fenced: retire it under the owner that just got
++			// the lease back, so the token it may still be saving can be published.
++			if (handedBack && exchange) {
++				this.#retireExchangeReservation(
++					exchange.store,
++					credentialId,
++					exchange.expectedData,
++					takenOverFrom.owner,
++				);
++			}
+ 		} catch (error) {
+ 			// The lease then expires still naming this refresher, a recent holder.
+ 			logger.warn("OAuth refresh could not hand a taken-over lease back", { credentialId, error: String(error) });
+@@ -269,6 +346,19 @@
+ 	}
+ 
+ 	/**
++	 * An unlock caller needs a verdict on every exit; an ordinary refresh keeps
++	 * its existing shape, so the verdict is attached only when requested.
++	 */
++	#withUnlock<T extends OAuthCredential>(
++		options: StoredOAuthRefreshOptions<T>,
++		result: StoredOAuthRefreshResult<T>,
++		outcome: StoredOAuthRefreshUnlockVerdict["outcome"],
++		error?: string,
++	): StoredOAuthRefreshResult<T> {
++		return options.unlock ? { ...result, unlock: error === undefined ? { outcome } : { outcome, error } } : result;
++	}
++
++	/**
+ 	 * Save a token this process already exchanged. The provider consumed the old
+ 	 * refresh token, so a busy store is retried (re-arming the lease each time:
+ 	 * a blocked event loop can outlive its TTL, and an expired lease no peer
+@@ -277,6 +367,10 @@
+ 	 * holds the spent token: a peer that took over the lapsed lease hands it
+ 	 * back once the provider rejects that token, but the next peer can hold it
+ 	 * at the moment this save lands.
++	 *
++	 * For a journal-protected exchange the commit replaces the compare-and-set:
++	 * publishing the staged replacement and retiring its reservation is then one
++	 * transaction, and the commit itself requires the row this attempt exchanged.
+ 	 */
+ 	async #persistExchangedCredential(
+ 		provider: string,
+@@ -285,6 +379,7 @@
+ 		credential: OAuthCredential,
+ 		lease: { store: CredentialRefreshLeaseStore; owner: string } | undefined,
+ 		fingerprints: Record<string, unknown>,
++		exchangeStore: CredentialRefreshExchangeStore | undefined,
+ 	): Promise<boolean> {
+ 		const deadline = Date.now() + OAUTH_REFRESH_PERSIST_TIMEOUT_MS;
+ 		let refused = false;
+@@ -315,12 +410,17 @@
+ 					}
+ 				}
+ 				const saved =
+-					this.#deps.store.tryUpdateAuthCredentialIfMatches?.(
+-						credentialId,
+-						expectedData,
+-						credential,
+-						lease ? { owner: lease.owner, nowMs: Date.now() } : undefined,
+-					) ?? false;
++					exchangeStore && lease
++						? exchangeStore.commitCredentialRefreshResult(credentialId, expectedData, credential, {
++								owner: lease.owner,
++								nowMs: Date.now(),
++							})
++						: (this.#deps.store.tryUpdateAuthCredentialIfMatches?.(
++								credentialId,
++								expectedData,
++								credential,
++								lease ? { owner: lease.owner, nowMs: Date.now() } : undefined,
++							) ?? false);
+ 				if (saved) return true;
+ 				// A peer that saved first changed the row; otherwise no peer can hold a
+ 				// usable successor of the spent token, so wait for the lease instead.
+@@ -356,7 +456,11 @@
+ 		options: StoredOAuthRefreshOptions<T>,
+ 	): Promise<StoredOAuthRefreshResult<T>> {
+ 		if (this.#shuttingDown) return Promise.reject(new AIError.AbortError("OAuth refresh stopped during shutdown"));
+-		return this.#track(this.#refreshStored(provider, options));
++		if (options.signal?.aborted) return Promise.reject(new AIError.AbortError("OAuth refresh ownership aborted by caller"));
++		// The owner is tracked, the wait is the caller's: an abort ends only this
++		// caller, while the admitted exchange still stages and saves what the
++		// provider minted for it.
++		return raceSignal(this.#track(this.#refreshStored(provider, options)), options.signal, "credential refresh aborted");
+ 	}
+ 
+ 	/** Keeps shutdown waiting until `pending` settles, so rotated tokens are persisted before exit. */
+@@ -421,7 +525,139 @@
+ 		});
+ 	}
+ 
+-	async #refreshStored<T extends OAuthCredential = OAuthCredential>(
++
++	/**
++	 * Read-only, redacted view of one provider's unresolved refresh exchange.
++	 * Derived from the durable store, never from a log line, so it stays accurate
++	 * after the transient-failure cooldown expires. Only the journal-protected
++	 * providers can hold one at all; every other provider reports
++	 * `"not-applicable"` before any credential row or journal entry is read.
++	 * Fails closed: a runtime whose token exchange is not minted in this process,
++	 * a broker-sentinel row, and a store without the exchange journal all report
++	 * `eligible: false`.
++	 */
++	async inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection> {
++		if (provider !== DURABLE_EXCHANGE_PROVIDER) {
++			return { eligible: false, reason: "not-applicable", holdsUnstagedResult: false };
++		}
++		const store = this.#deps.store;
++		if (!this.#mintsLocally()) {
++			return { eligible: false, reason: "delegated-runtime", holdsUnstagedResult: false };
++		}
++		if (!hasRefreshExchanges(store)) {
++			return { eligible: false, reason: "unsupported-store", holdsUnstagedResult: false };
++		}
++		const oauthRows = store.listAuthCredentials(provider).filter(row => row.credential.type === "oauth");
++		if (oauthRows.length === 0) {
++			const disabled = store.listDisabledCredentials ? await store.listDisabledCredentials(provider) : [];
++			return { eligible: false, reason: disabled.length > 0 ? "credential-disabled" : "no-credential", holdsUnstagedResult: false };
++		}
++		const holdsUnstagedResult = oauthRows.some(row => this.#unstagedResults.has(row.id));
++		// Runtime-level refusal outranks per-row state: a broker-held refresh token
++		// cannot be verified or released from here, whatever the journal says.
++		const remote = oauthRows.find(
++			row => row.credential.type === "oauth" && row.credential.refresh === REMOTE_REFRESH_SENTINEL,
++		);
++		if (remote) {
++			return { eligible: false, reason: "remote-credential", credentialId: remote.id, holdsUnstagedResult };
++		}
++		let staged: { row: (typeof oauthRows)[number]; inspection: CredentialRefreshExchangeInspection } | undefined;
++		for (const row of oauthRows) {
++			const inspection = store.inspectUnresolvedCredentialRefreshExchange(row.id);
++			if (inspection.eligible) {
++				return {
++					eligible: true,
++					reason: "pending",
++					credentialId: row.id,
++					...(inspection.expiresAt === undefined ? {} : { expiresAt: inspection.expiresAt }),
++					...(inspection.fence === undefined ? {} : { fence: inspection.fence }),
++					holdsUnstagedResult: this.#unstagedResults.has(row.id),
++				};
++			}
++			if (inspection.reason === "staged-replacement") staged ??= { row, inspection };
++		}
++		const reason: OAuthRefreshUnlockReason = staged ? "staged-replacement" : "no-exchange";
++		return {
++			eligible: false,
++			reason,
++			credentialId: (staged?.row ?? oauthRows[0]).id,
++			holdsUnstagedResult,
++		};
++	}
++
++	/**
++	 * Release one fenced unresolved exchange and run at most one native token
++	 * exchange, inside the shared owned-refresh path. Order is fixed there:
++	 * take the lease, persist a result this process already holds, release the
++	 * exact exchange the fence names, then reserve/POST/stage/commit. A peer's
++	 * lease is never waited on, the credential row is never disabled from here,
++	 * and a failure leaves the row active with a new pending marker. Another
++	 * provider has no fenced exchange to release and is refused as not applicable
++	 * before its credential rows or journal entries are read.
++	 */
++	async unlockAndRefreshStored(
++		provider: string,
++		options: OAuthRefreshUnlockOptions,
++	): Promise<OAuthRefreshUnlockResult> {
++		if (options.signal?.aborted) throw new AIError.AbortError("OAuth unlock aborted by caller");
++		const inspection = await this.inspectUnresolvedRefresh(provider);
++		if (inspection.reason === "not-applicable") {
++			// No journal-protected exchange can exist for this provider, so there is
++			// nothing to release and no reason to inspect or rewrite its rows.
++			return {
++				outcome: "not-applicable",
++				error: `only journal-protected providers can hold an unresolved OAuth exchange; ${provider} refreshes without one`,
++			};
++		}
++		if (!inspection.eligible && inspection.reason !== "staged-replacement" && !inspection.holdsUnstagedResult) {
++			if (
++				inspection.reason === "remote-credential" ||
++				inspection.reason === "delegated-runtime" ||
++				inspection.reason === "unsupported-store"
++			) {
++				return { outcome: "failed", error: `OAuth unlock is unavailable for provider ${provider}: ${inspection.reason}` };
++			}
++			return { outcome: "nothing-to-unlock" };
++		}
++		const result = await (async () => {
++			try {
++				return await raceSignal(
++					this.refreshStored(provider, {
++						credentialId: inspection.credentialId,
++						credentialFromRow: row => row,
++						forceRefresh: true,
++						signal: options.signal,
++						unlock: { fence: options.fence },
++						// The leased exchange owns its own budget, so it passes no caller reason.
++						refresh: (current, refreshSignal) =>
++							this.#requestOAuthCredentialRefresh(
++								provider,
++								current,
++								inspection.credentialId,
++								refreshSignal,
++								undefined,
++							),
++					}),
++					options.signal,
++					"OAuth unlock aborted by caller",
++				);
++			} catch (caught) {
++				// A peer's abort is the caller's own; a failed exchange leaves the row
++				// active with a new pending marker and is reported, not thrown.
++				if (options.signal?.aborted) throw caught;
++				return { failed: caught instanceof Error ? caught.message : String(caught) } as const;
++			}
++		})();
++		if ("failed" in result) return { outcome: "failed", error: result.failed };
++		const verdict: StoredOAuthRefreshUnlockVerdict = result.unlock ?? { outcome: "nothing-to-unlock" };
++		return {
++			outcome: verdict.outcome,
++			...(result.credential ? { expiresAt: result.credential.expires } : {}),
++			...(verdict.error === undefined ? {} : { error: verdict.error }),
++		};
++	}
++
++	async #refreshStored<T extends OAuthCredential>(
+ 		provider: string,
+ 		options: StoredOAuthRefreshOptions<T>,
+ 	): Promise<StoredOAuthRefreshResult<T>> {
+@@ -448,11 +684,11 @@
+ 					(options.credentialId === undefined || entry.id === options.credentialId),
+ 			);
+ 			if (row?.credential.type !== "oauth") {
+-				return { credential: undefined, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: undefined, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			const current = options.credentialFromRow(row.credential);
+ 			if (!current) {
+-				return { credential: undefined, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: undefined, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			const currentIsFresh = Date.now() + refreshSkewMs < current.expires;
+ 			// A peer rotated the credential out from under the caller's observation.
+@@ -502,6 +738,17 @@
+ 				}
+ 				break;
+ 			}
++			// An explicit unlock is a user-driven one-shot: a peer already refreshing
++			// this row owns the outcome, and blocking a confirmation on its lease
++			// would leave the command hanging.
++			if (options.unlock) {
++				return this.#withUnlock(
++					options,
++					{ credential: undefined, refreshed: false, removed: false },
++					"failed",
++					`another process holds the OAuth refresh lease for provider: ${provider}`,
++				);
++			}
+ 			const leaseExpiresAt = leaseStore.getCredentialRefreshLeaseExpiresAt(row.id);
+ 			const waitMs =
+ 				leaseExpiresAt === undefined
+@@ -531,23 +778,23 @@
+ 					(options.credentialId === undefined || entry.id === options.credentialId),
+ 			);
+ 			if (row?.credential.type !== "oauth") {
+-				return { credential: undefined, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: undefined, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			const current = options.credentialFromRow(row.credential);
+ 			if (!current) {
+-				return { credential: undefined, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: undefined, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			const currentIsFresh = Date.now() + refreshSkewMs < current.expires;
+ 			// Re-check after acquiring the lease: a peer that held it may have just
+ 			// rotated the row, mirroring the pre-lease guard.
+ 			if (currentIsFresh && this.#storedIsNewer(current, options)) {
+-				return { credential: current, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: current, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			if (!options.forceRefresh && currentIsFresh) {
+-				return { credential: current, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: current, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			if (options.canRefresh && !options.canRefresh(current)) {
+-				return { credential: current, refreshed: false, removed: false };
++				return this.#withUnlock(options, { credential: current, refreshed: false, removed: false }, "nothing-to-unlock");
+ 			}
+ 			// Arm the drain first: once exit has begun, arming it sets `#shuttingDown`, so a
+ 			// refresh that starts then stops here instead of spending a token nobody saves.
+@@ -556,7 +803,164 @@
+ 				throw new AIError.AbortError("OAuth refresh stopped before token exchange");
+ 			}
+ 			const serialized = serializeCredential(provider, current);
+-			if (!serialized) return { credential: current, refreshed: false, removed: false };
++			if (!serialized) {
++				return this.#withUnlock(options, { credential: current, refreshed: false, removed: false }, "nothing-to-unlock");
++			}
++			// Only a future admitted local exchange creates state. Ordinary reads,
++			// fresh credentials and callers cancelled before ownership never do.
++			if (options.signal?.aborted) throw new AIError.AbortError("OAuth refresh ownership aborted by caller");
++			const exchangeStore = hasRefreshExchanges(this.#deps.store) ? this.#deps.store : undefined;
++			let recovered: T | undefined;
++			const localExchange = current.refresh !== REMOTE_REFRESH_SENTINEL;
++			// Durable unknown-outcome protection is Anthropic-only. Another provider's
++			// local row takes the ordinary lease + CAS path even on a store that keeps
++			// the journal: it never reserves or stages, so a marker left by an earlier
++			// revision cannot fence it (a staged replacement is still adopted below).
++			const durableExchange = localExchange && provider === DURABLE_EXCHANGE_PROVIDER;
++			let adoptedStaged = false;
++			if (durableExchange) {
++				if (!exchangeStore || leasedCredentialId === undefined) {
++					if (options.unlock) {
++						return this.#withUnlock(
++							options,
++							{ credential: undefined, refreshed: false, removed: false },
++							"failed",
++							"Local OAuth refresh requires durable exchange storage",
++						);
++					}
++					throw new AIError.ConfigurationError("Local OAuth refresh requires durable exchange storage");
++				}
++				// Persist a result this process already holds BEFORE any release, under
++				// its original exchange owner: unlocking a generation whose consumed
++				// token came back to this process must never send it a second time.
++				const unstaged = this.#unstagedResults.get(row.id);
++				if (unstaged) {
++					const staged = exchangeStore.stageCredentialRefreshResult(
++						row.id,
++						unstaged.expectedData,
++						unstaged.owner,
++						unstaged.credential,
++					);
++					if (staged) {
++						this.#unstagedResults.delete(row.id);
++					} else if (options.unlock) {
++						return this.#withUnlock(
++							options,
++							{ credential: undefined, refreshed: false, removed: false },
++							"failed",
++							`a minted OAuth result for credential ${row.id} is held in memory and could not be persisted; retry before unlocking`,
++						);
++					}
++				}
++				let markerReserved = false;
++				if (options.unlock) {
++					const release = exchangeStore.releaseUnresolvedCredentialRefreshExchange(
++						row.id,
++						serialized.data,
++						options.unlock.fence,
++						{ owner, nowMs: Date.now() },
++					);
++					if (release !== "released" && release !== "staged-replacement-present") {
++						const refusal: StoredOAuthRefreshUnlockVerdict =
++							release === "fence-mismatch"
++								? { outcome: "fence-mismatch", error: "the pending refresh exchange changed since it was inspected; re-run the unlock" }
++								: release === "not-pending"
++									? { outcome: "nothing-to-unlock" }
++									: release === "row-changed"
++										? { outcome: "failed", error: "the credential row changed since it was inspected; re-run the unlock" }
++										: { outcome: "failed", error: "OAuth refresh ownership was lost before the exchange could be released" };
++						return this.#withUnlock(
++							options,
++							{ credential: undefined, refreshed: false, removed: false },
++							refusal.outcome,
++							refusal.error,
++						);
++					}
++					// "released" already installed this owner's reservation in the same
++					// transaction, so the generation is never marker-less here and the
++					// transaction is the only reservation this attempt may make.
++					markerReserved = release === "released";
++				}
++				const exchange = markerReserved
++					? ({ status: "reserved" } as const)
++					: exchangeStore.reserveCredentialRefreshExchange(row.id, serialized.data, {
++							owner,
++							nowMs: Date.now(),
++						});
++				if (!exchange) {
++					await this.#deps.pool.reload();
++					const latest = this.#deps.pool.entries(provider).find(entry => entry.id === row.id)?.credential;
++					return this.#withUnlock(
++						options,
++						{
++							credential: latest?.type === "oauth" ? options.credentialFromRow(latest) : undefined,
++							refreshed: false,
++							removed: false,
++						},
++						options.unlock ? "failed" : "nothing-to-unlock",
++						options.unlock ? "the credential row changed while the exchange was reserved" : undefined,
++					);
++				}
++				if (exchange.status === "pending") {
++					recovered = exchange.credential ? options.credentialFromRow(exchange.credential) : undefined;
++					if (!recovered) {
++						if (options.unlock) {
++							return this.#withUnlock(
++								options,
++								{ credential: undefined, refreshed: false, removed: false },
++								"failed",
++								`OAuth refresh outcome is unresolved for provider: ${provider}; recovery or sign-in is required`,
++							);
++						}
++						throw new AIError.OAuthError(
++							`OAuth refresh outcome is unresolved for provider: ${provider}; recovery or sign-in is required`,
++							{ kind: "token-refresh", provider },
++						);
++					}
++				}
++			} else if (options.unlock) {
++				return this.#withUnlock(
++					options,
++					{ credential: undefined, refreshed: false, removed: false },
++					localExchange ? "not-applicable" : "failed",
++					localExchange
++						? `only journal-protected providers keep an unresolved OAuth exchange; ${provider} refreshes without one`
++						: `the OAuth refresh token for provider ${provider} is held by a broker; unlock locally is unsupported`,
++				);
++			} else if (localExchange && exchangeStore && leasedCredentialId !== undefined) {
++				// Migration for a provider that no longer journals: a replacement staged
++				// before this revision is the only known-minted token for this
++				// generation, so publishing it beats re-sending a refresh token the
++				// provider may already have consumed. This branch never reserves or
++				// stages; a matching replacement is published once under the ordinary
++				// lease and its marker retired, while a pending or stale marker is left
++				// untouched and the ordinary exchange below resumes.
++				const staged = exchangeStore.readStagedCredentialRefreshResult(row.id, serialized.data);
++				if (staged) {
++					recovered = options.credentialFromRow(staged);
++					adoptedStaged = true;
++				}
++			}
++			// A protected exchange stages its minted result and publishes it through the
++			// journal commit; every other exchange keeps the ordinary CAS.
++			const exchangeJournal = durableExchange || adoptedStaged ? exchangeStore : undefined;
++			// A local exchange may only run where its result can be published. Publishing
++			// is the fenced compare-and-set, or the journal commit that replaces it; a
++			// store with neither would spend the refresh token and keep the old
++			// credential, so refuse before the grant is sent rather than report a save.
++			if (localExchange && !this.#deps.store.tryUpdateAuthCredentialIfMatches && !exchangeJournal) {
++				if (options.unlock) {
++					return this.#withUnlock(
++						options,
++						{ credential: undefined, refreshed: false, removed: false },
++						"failed",
++						`OAuth refresh for provider ${provider} cannot publish a local exchange: the store has no fenced credential update`,
++					);
++				}
++				throw new AIError.ConfigurationError(
++					`Local OAuth refresh for provider ${provider} requires a fenced credential update`,
++				);
++			}
+ 			// Acquiring the lease can block on SQLite past the deadline; do not start an exchange nobody waits for.
+ 			if (Date.now() >= waitDeadline) return this.#budgetExceeded(provider, options, current);
+ 
+@@ -574,6 +978,8 @@
+ 					leasedCredentialId,
+ 					owner,
+ 					takenOverFrom,
++					exchangeJournal,
++					recovered,
+ 				),
+ 			);
+ 			// Lease release now belongs to the exchange.
+@@ -588,12 +994,12 @@
+ 			}
+ 			if (outcome === "timeout") return this.#budgetExceeded(provider, options, current);
+ 			if ("result" in outcome) return outcome.result;
+-			return this.#refreshFailed(options, current, outcome.failure);
++			return this.#refreshFailed(provider, options, current, outcome.failure);
+ 		} finally {
+ 			if (leasedCredentialId !== undefined && leaseStore) {
+ 				// A hand-back retries a busy store for the save window; the caller, which is
+ 				// leaving with its budget spent or its signal aborted, does not wait for it.
+-				void this.#track(this.#leaveLease(leaseStore, leasedCredentialId, owner, takenOverFrom));
++				void this.#track(this.#leaveLease(leaseStore, leasedCredentialId, owner, takenOverFrom, undefined));
+ 			}
+ 		}
+ 	}
+@@ -608,10 +1014,11 @@
+ 			kind: "timeout",
+ 			provider,
+ 		});
+-		return this.#refreshFailed(options, current, error);
++		return this.#refreshFailed(provider, options, current, error);
+ 	}
+ 
+ 	#refreshFailed<T extends OAuthCredential>(
++		provider: string,
+ 		options: StoredOAuthRefreshOptions<T>,
+ 		current: T,
+ 		error: unknown,
+@@ -622,14 +1029,27 @@
+ 				? options.keepCredentialOnRefreshFailure(error)
+ 				: options.keepCredentialOnRefreshFailure === true;
+ 		if (keepCredential) {
+-			return { credential: current, refreshed: false, removed: false };
++			// Keeping the credential means keeping the row the store holds now: the
++			// failure may have arrived after another client logged out or replaced
++			// it, and handing back the captured value would present a token the
++			// authority no longer serves.
++			if (options.credentialId === undefined) return { credential: current, refreshed: false, removed: false };
++			const latest = this.#deps.store
++				.listAuthCredentials(provider)
++				.find(entry => entry.id === options.credentialId)?.credential;
++			return {
++				credential: latest?.type === "oauth" ? options.credentialFromRow(latest) : undefined,
++				refreshed: false,
++				removed: false,
++			};
+ 		}
+ 		throw error;
+ 	}
+ 
+ 	/**
+ 	 * Runs one token exchange under the row lease and persists the rotated
+-	 * credential by CAS, then releases the lease. An exchange error that does not
++	 * credential by CAS — or, for a journal-protected exchange, by committing the
++	 * staged result — then releases the lease. An exchange error that does not
+ 	 * disable the login resolves as `failure` so the waiting caller applies its
+ 	 * failure policy.
+ 	 */
+@@ -643,9 +1063,12 @@
+ 		leasedCredentialId: number | undefined,
+ 		owner: string,
+ 		takenOverFrom: CredentialRefreshLeaseHolder | undefined,
++		exchangeJournal: CredentialRefreshExchangeStore | undefined,
++		recovered: T | undefined,
+ 	): Promise<LeasedExchangeOutcome<T>> {
+ 		let keepLease = false;
+ 		let saved = false;
++		const localExchange = current.refresh !== REMOTE_REFRESH_SENTINEL;
+ 		try {
+ 			const leaseRenewalStop = new AbortController();
+ 			let leaseRenewalError: unknown;
+@@ -708,11 +1131,100 @@
+ 				OAUTH_REFRESH_EXCHANGE_BACKSTOP_MS,
+ 			);
+ 
+-			let refreshed: OAuthCredentials;
++			let merged: T;
+ 			try {
+-				refreshed = await Promise.race([options.refresh(current, refreshAbort.signal), backstopReached.promise]);
++				if (!localExchange && this.#deps.store.refreshOAuthCredential) {
++					// Brokered subtype callbacks delegate to oauth.refresh(), which
++					// already publishes the complete row. Their partial return value
++					// must never run a local merger or trigger another publication.
++					await raceSignal(
++						options.refresh(current, refreshAbort.signal),
++						refreshAbort.signal,
++						`OAuth token refresh timed out for provider: ${provider}`,
++					);
++					const latestRows = this.#deps.store.listAuthCredentials(provider);
++					this.#deps.pool.replace(
++						provider,
++						latestRows.map(entry => ({ id: entry.id, credential: entry.credential })),
++					);
++					const latest = latestRows.find(entry => entry.id === row.id)?.credential;
++					const credential = latest?.type === "oauth" ? options.credentialFromRow(latest) : undefined;
++					return { result: { credential, refreshed: credential !== undefined, removed: false } };
++				}
++				if (recovered) {
++					// A staged replacement for this exact generation: publish it instead of
++					// spending a refresh token the provider may already have consumed.
++					merged = recovered;
++				} else {
++					// Staging rides the provider promise, not this caller's wait: a result
++					// minted after the owner stopped waiting (or after the backstop ended
++					// this attempt) is still a rotated token the store must hold. Tracking
++					// it keeps store close and process exit waiting for that staging.
++					const exchange = this.#track(
++						options.refresh(current, refreshAbort.signal).then(refreshed => {
++							const result = options.mergeRefreshedCredential
++								? options.mergeRefreshedCredential(current, refreshed)
++								: mergeRefreshedCredential(current, refreshed);
++							// Stage the minted token before anything publishes it: the journal
++							// records a replacement for this exchange, and the commit below
++							// publishes it in the transaction that retires the marker. This
++							// continuation also retains a late response after the owner timeout.
++							if (exchangeJournal) {
++								this.#unstagedResults.set(row.id, {
++									expectedData: serializedData,
++									owner,
++									credential: result,
++								});
++								// A staging that fails keeps the result in memory for the next
++								// owner to publish; the journal is the durable copy.
++								if (exchangeJournal.stageCredentialRefreshResult(row.id, serializedData, owner, result)) {
++									this.#unstagedResults.delete(row.id);
++								}
++							}
++							return result;
++						}),
++					);
++					merged = await Promise.race([exchange, backstopReached.promise]);
++				}
+ 			} catch (error) {
+-				if (!options.isDefinitiveFailure?.(error)) return { failure: error };
++				// An advisory exchange whose provider ANSWERED and refused this exact grant
++				// has a known outcome: nothing was minted, so its reservation must not
++				// survive to refuse the next interactive refresh. The row stays active
++				// (advisory policy) and the next refresh re-reads the store.
++				// The proof is structured, never message text: the token endpoint returned
++				// a non-2xx status AND its parsed body named a grant rejection. A transport
++				// error, a timeout, an abort, an unparseable body, a 2xx with a bad payload,
++				// a 5xx or a 429 keeps the marker exactly as before.
++				const refusal = error instanceof AIError.OAuthError ? error : undefined;
++				if (
++					options.advisory === true &&
++					exchangeJournal !== undefined &&
++					recovered === undefined &&
++					refusal?.status !== undefined &&
++					refusal.status >= 400 &&
++					refusal.oauthError === GRANT_REJECTION_ERROR
++				) {
++					exchangeJournal.dischargeCredentialRefreshExchange?.(row.id, serializedData, owner);
++				}
++				if (!options.isDefinitiveFailure?.(error)) {
++					// A broker-held row keeps this process's mirror, so re-read the authority
++					// before the caller keeps it: the failed operation may have disabled the
++					// attempted row, or another client may have logged out or replaced it.
++					if (!localExchange && this.#deps.store.refreshSnapshot) {
++						if (refreshAbort.signal.aborted) throw error;
++						try {
++							await raceSignal(
++								this.#deps.store.refreshSnapshot(),
++								refreshAbort.signal,
++								"OAuth refresh fallback revalidation timed out",
++							);
++						} catch {
++							throw error;
++						}
++						await this.#deps.pool.reload();
++					}
++					return { failure: error };
++				}
+ 				if (takenOverFrom && leaseStore && leasedCredentialId !== undefined) {
+ 					// The owner whose lease lapsed may have spent this token and still be
+ 					// saving its successor. Give the lease back so it can, and fail this
+@@ -737,6 +1249,12 @@
+ 							return false;
+ 						},
+ 					);
++					if (handedBack && exchangeJournal) {
++						// The reservation is owner-fenced, so hand it to the owner that just got
++						// the lease back: only that owner can still stage and publish the token
++						// it minted, and the hand-back exists to let it.
++						this.#retireExchangeReservation(exchangeJournal, row.id, serializedData, takenOverFrom.owner);
++					}
+ 					logger.warn("OAuth refresh token rejected after taking over a stalled refresher; not disabling", {
+ 						provider,
+ 						credentialId: row.id,
+@@ -752,12 +1270,16 @@
+ 					};
+ 				}
+ 				const disabledCause = options.disabledCause?.(error) ?? `oauth refresh failed: ${String(error)}`;
+-				const disabled = this.#deps.store.tryDisableAuthCredentialIfMatches(
+-					row.id,
+-					serializedData,
+-					disabledCause,
+-					leasedCredentialId !== undefined ? { owner, nowMs: Date.now() } : undefined,
+-				);
++				// A store without a fenced disable cannot prove the row it disables is the
++				// one this attempt exchanged, so it must keep the row rather than tear down
++				// a generation it never owned: the reload below reports the live winner.
++				const disabled =
++					this.#deps.store.tryDisableAuthCredentialIfMatches?.(
++						row.id,
++						serializedData,
++						disabledCause,
++						leasedCredentialId !== undefined ? { owner, nowMs: Date.now() } : undefined,
++					) ?? false;
+ 				if (disabled) {
+ 					// Re-read: siblings may have been removed while the exchange ran.
+ 					this.#deps.pool.replace(
+@@ -785,9 +1307,6 @@
+ 				await leaseRenewal;
+ 				clearTimeout(backstop);
+ 			}
+-			const merged: T = options.mergeRefreshedCredential
+-				? options.mergeRefreshedCredential(current, refreshed)
+-				: mergeRefreshedCredential(current, refreshed);
+ 			const fingerprints = {
+ 				provider,
+ 				credentialId: row.id,
+@@ -803,7 +1322,18 @@
+ 				// below writes only once the lease is ours again and the row is unchanged.
+ 				if (!this.#deps.store.tryUpdateAuthCredentialIfMatches) throw leaseRenewalError;
+ 			}
+-			if (this.#deps.store.tryUpdateAuthCredentialIfMatches) {
++			// Ownership must still be ours when the token is saved. An expired lease no
++			// peer took is still ours, but a peer owner means this attempt may only
++			// report the loss: publishing here would overwrite the winner's row.
++			if (
++				leasedCredentialId !== undefined &&
++				leaseStore &&
++				!leaseStore.renewCredentialRefreshLease(leasedCredentialId, owner, Date.now() + OAUTH_REFRESH_LEASE_TTL_MS) &&
++				!leaseStore.tryAcquireCredentialRefreshLease(leasedCredentialId, owner, Date.now() + OAUTH_REFRESH_LEASE_TTL_MS)
++			) {
++				throw new AIError.ConfigurationError("OAuth refresh ownership was lost before persistence");
++			}
++			if (this.#deps.store.tryUpdateAuthCredentialIfMatches || exchangeJournal) {
+ 				if (
+ 					!(await this.#persistExchangedCredential(
+ 						provider,
+@@ -812,24 +1342,28 @@
+ 						merged,
+ 						leasedCredentialId !== undefined && leaseStore ? { store: leaseStore, owner } : undefined,
+ 						fingerprints,
++						exchangeJournal,
+ 					))
+ 				) {
+ 					logger.warn("OAuth refresh lost its compare-and-set; exchanged token not saved", fingerprints);
+ 					await this.#deps.pool.reload();
+ 					const latest = this.#deps.pool.entries(provider).find(entry => entry.id === row.id)?.credential;
+ 					return {
+-						result: {
+-							credential: latest?.type === "oauth" ? options.credentialFromRow(latest) : undefined,
+-							refreshed: false,
+-							removed: false,
+-						},
++						result: this.#withUnlock(
++							options,
++							{
++								credential: latest?.type === "oauth" ? options.credentialFromRow(latest) : undefined,
++								refreshed: false,
++								removed: false,
++							},
++							options.unlock ? "failed" : "nothing-to-unlock",
++							options.unlock ? "the minted result could not be published; the credential row changed" : undefined,
++						),
+ 					};
+ 				}
+-			} else {
+-				this.#deps.store.updateAuthCredential(row.id, merged);
+ 			}
+ 			saved = true;
+-			if (this.#mintsLocally()) {
++			if (!recovered && this.#mintsLocally()) {
+ 				this.#rememberMint(provider, row.id, merged);
+ 			}
+ 			// Re-read rather than reuse `rows`: siblings may have been removed while the exchange ran.
+@@ -839,11 +1373,25 @@
+ 					.listAuthCredentials(provider)
+ 					.map(entry => ({ id: entry.id, credential: entry.credential })),
+ 			);
+-			return { result: { credential: merged, refreshed: true, removed: false } };
++			return {
++				result: this.#withUnlock(
++					options,
++					{ credential: merged, refreshed: true, removed: false },
++					recovered ? "staged-result-recovered" : "refreshed",
++				),
++			};
+ 		} finally {
+ 			if (leasedCredentialId !== undefined && leaseStore && !keepLease) {
+ 				if (saved) leaseStore.releaseCredentialRefreshLease(leasedCredentialId, owner);
+-				else await this.#leaveLease(leaseStore, leasedCredentialId, owner, takenOverFrom);
++				else {
++					await this.#leaveLease(
++						leaseStore,
++						leasedCredentialId,
++						owner,
++						takenOverFrom,
++						exchangeJournal ? { store: exchangeJournal, expectedData: serializedData } : undefined,
++					);
++				}
+ 			}
+ 		}
+ 	}
+@@ -930,10 +1478,16 @@
+ 			// A token the provider has just rejected is not a usable recent mint.
+ 			if (recent && recent.credential.access !== rejectedAccess) return Promise.resolve(recent.credential);
+ 		}
+-		return this.#track(this.#refreshSingleFlight(provider, credential, credentialId, signal, reason, rejectedAccess));
++		// Cancellation is this caller's own wait, never the shared rotation: a
++		// caller that leaves must not tear down the operation a peer joined.
++		return raceSignal(
++			this.#track(this.#refreshSingleFlight(provider, credential, credentialId, signal, reason, rejectedAccess)),
++			signal,
++			"credential refresh aborted",
++		);
+ 	}
+ 
+-	/** Refresh without recent-mint reuse; still shares the per-credential in-flight request. */
++	/** Share the durable operation, never an individual waiter's cancellation. */
+ 	async #refreshSingleFlight(
+ 		provider: Provider,
+ 		credential: OAuthCredential,
+@@ -946,7 +1500,7 @@
+ 		if (credentialId !== undefined) {
+ 			const existing = this.#oauthCredentialRefreshInFlight.get(credentialId);
+ 			if (existing) {
+-				const joined = await raceSignal(existing, signal, "credential refresh aborted");
++				const joined = await existing;
+ 				// A refresh started for another request may adopt the very token this
+ 				// request was refused with; refresh again instead of returning it.
+ 				if (rejectedAccess === undefined || joined.access !== rejectedAccess) return joined;
+@@ -958,7 +1512,7 @@
+ 		// they would inherit its cancellation instead of a credential.
+ 		if (signal?.aborted) throw new AIError.AbortError("credential refresh aborted");
+ 		if (credentialId === undefined) {
+-			return this.#refreshOAuthCredentialUnshared(provider, credential, undefined, signal, reason, rejectedAccess);
++			throw new AIError.ConfigurationError("OAuth refresh requires a stored credential id");
+ 		}
+ 		const promise = this.#refreshOAuthCredentialUnshared(
+ 			provider,
+@@ -981,20 +1535,20 @@
+ 			});
+ 		// Tracked apart from the caller: a refresh its caller abandoned still has to finish before the store closes.
+ 		this.#oauthCredentialRefreshInFlight.set(credentialId, this.#track(promise));
+-		return raceSignal(promise, signal, "credential refresh aborted");
++		return promise;
+ 	}
+ 
+ 	async #refreshOAuthCredentialUnshared(
+ 		provider: Provider,
+ 		credential: OAuthCredential,
+-		credentialId: number | undefined,
++		credentialId: number,
+ 		signal?: AbortSignal,
+ 		reason?: OAuthRefreshReason,
+ 		rejectedAccess?: string,
+ 	): Promise<OAuthCredentials> {
+ 		if (credentialId !== undefined && hasRefreshLeases(this.#deps.store)) {
+ 			const forceRefresh = credential.expires === 0;
+-			const result = await this.refreshStored(provider, {
++			const result = await this.#refreshStored(provider, {
+ 				credentialId,
+ 				// A forced refresh still names the tokens it wants replaced: when the
+ 				// row already holds newer ones, another process refreshed first.
+@@ -1005,10 +1559,13 @@
+ 				signal,
+ 				// `refreshStored` owns the caller budget and the exchange backstop.
+ 				refresh: (current, refreshSignal) =>
+-					this.#requestOAuthCredentialRefresh(provider, current, credentialId, refreshSignal, reason, undefined),
++					this.#requestOAuthCredentialRefresh(provider, current, credentialId, refreshSignal, reason),
+ 				// A usage probe is advisory: leave a dead grant for an interactive request to disable.
+ 				isDefinitiveFailure:
+ 					reason === "usage-probe" ? undefined : error => AIError.isDefinitiveOAuthFailure(String(error)),
++				// ...but a rejection the provider actually sent is a known outcome, so its
++				// reservation is discharged rather than left to refuse the next refresh.
++				advisory: reason === "usage-probe",
+ 				disabledCause: error => `oauth refresh failed: ${String(error)}`,
+ 			});
+ 			if (result.credential) {
+@@ -1038,14 +1595,86 @@
+ 				provider,
+ 			});
+ 		}
+-		return this.#requestOAuthCredentialRefresh(
+-			provider,
+-			credential,
+-			credentialId,
+-			signal,
+-			reason,
++		// Durable exchange storage (leases + journal) is required wherever this
++		// process would mint locally. That is a store-capability requirement, not
++		// the Anthropic replay protocol: a store with leases but no journal still
++		// refreshes any other provider through the ordinary lease + CAS path.
++		if (credential.refresh !== REMOTE_REFRESH_SENTINEL || this.#mintsLocally()) {
++			throw new AIError.ConfigurationError("Local OAuth refresh requires durable exchange storage");
++		}
++		if (signal?.aborted) throw new AIError.AbortError("credential refresh aborted");
++		const observed = this.#deps.store
++			.listAuthCredentials(provider)
++			.find(row => row.id === credentialId)?.credential;
++		if (observed?.type !== "oauth") {
++			throw new AIError.OAuthError(`OAuth credential no longer exists for provider: ${provider}`, {
++				kind: "token-refresh",
++				provider,
++			});
++		}
++		const observedData = serializeCredential(provider, observed)?.data;
++		// This exchange is shared with every caller that joins the same row, so it
++		// must outlive any one of them: each caller's signal already races only that
++		// caller's wait in refresh/refreshById. Give the admitted exchange its own
++		// bounded lifetime instead of one caller's cancellation.
++		const refreshAbort = new AbortController();
++		const timeout = setTimeout(
++			() =>
++				refreshAbort.abort(
++					new AIError.OAuthError(`OAuth token refresh timed out for provider: ${provider}`, {
++						kind: "timeout",
++						provider,
++					}),
++				),
+ 			DEFAULT_OAUTH_REFRESH_TIMEOUT_MS,
+ 		);
++		try {
++			const refreshed = await raceSignal(
++				this.#requestOAuthCredentialRefresh(
++					provider,
++					credential.expires === 0 ? { ...observed, expires: 0 } : observed,
++					credentialId,
++					refreshAbort.signal,
++					reason,
++				),
++				refreshAbort.signal,
++				"credential refresh timed out",
++			);
++			if (this.#deps.override) {
++				// A documented value-returning override bypasses the store hook.
++				// Publish its result once, fenced against the row it actually saw.
++				const latest = this.#deps.store
++					.listAuthCredentials(provider)
++					.find(row => row.id === credentialId)?.credential;
++				if (latest?.type === "oauth" && observedData !== undefined && serializeCredential(provider, latest)?.data === observedData) {
++					const updated = mergeRefreshedCredential(observed, refreshed);
++					if (this.#deps.store.tryUpdateAuthCredentialIfMatches) {
++						this.#deps.store.tryUpdateAuthCredentialIfMatches(credentialId, observedData, updated);
++					} else {
++						// Remote snapshot comparison and update are synchronous: a
++						// login/logout callback cannot interleave with this publication.
++						this.#deps.store.updateAuthCredential(credentialId, updated);
++					}
++				}
++			}
++			const rows = this.#deps.store.listAuthCredentials(provider);
++			this.#deps.pool.replace(
++				provider,
++				rows.map(row => ({ id: row.id, credential: row.credential })),
++			);
++			const current = rows.find(row => row.id === credentialId)?.credential;
++			if (current?.type !== "oauth") {
++				throw new AIError.OAuthError(`OAuth credential no longer exists for provider: ${provider}`, {
++					kind: "token-refresh",
++					provider,
++				});
++			}
++			return current;
++		} catch (error) {
++			throw refreshAbort.signal.aborted ? refreshAbort.signal.reason : error;
++		} finally {
++			clearTimeout(timeout);
++		}
+ 	}
+ 
+ 	async #requestOAuthCredentialRefresh(
+@@ -1054,8 +1683,8 @@
+ 		credentialId: number | undefined,
+ 		signal: AbortSignal | undefined,
+ 		reason: OAuthRefreshReason | undefined,
+-		timeoutMs: number | undefined,
+ 	): Promise<OAuthCredentials> {
++		if (signal?.aborted) throw new AIError.AbortError("OAuth token refresh aborted by caller");
+ 		let refreshPromise: Promise<OAuthCredentials>;
+ 		// Caller override > store-level hook > local per-provider refresh.
+ 		// `RemoteAuthCredentialStore` exposes the hook so a broker-backed gateway
+@@ -1078,38 +1707,10 @@
+ 				refreshPromise = refreshOAuthToken(provider as OAuthProvider, credential, signal);
+ 			}
+ 		}
+-		// Stop awaiting after `timeoutMs` or on `signal`. Leased exchanges pass no
+-		// timeout: `refreshStored` stops its caller waiting without dropping the
+-		// result, and only its backstop signal ends the exchange itself.
+-		const cancellation = Promise.withResolvers<never>();
+-		let onAbort: (() => void) | undefined;
+-		const timeout =
+-			timeoutMs === undefined
+-				? undefined
+-				: setTimeout(
+-						() =>
+-							cancellation.reject(
+-								new AIError.OAuthError(`OAuth token refresh timed out for provider: ${provider}`, {
+-									kind: "timeout",
+-									provider,
+-								}),
+-							),
+-						timeoutMs,
+-					);
+-		if (signal) {
+-			if (signal.aborted) {
+-				cancellation.reject(new AIError.AbortError("OAuth token refresh aborted by caller"));
+-			} else {
+-				onAbort = () => cancellation.reject(new AIError.AbortError("OAuth token refresh aborted by caller"));
+-				signal.addEventListener("abort", onAbort, { once: true });
+-			}
+-		}
+-		try {
+-			return await Promise.race([refreshPromise, cancellation.promise]);
+-		} finally {
+-			clearTimeout(timeout);
+-			if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+-		}
++		// The provider promise itself, never a wrapping race: the owner and each
++		// caller bound their own wait, and the exchange retains what the provider
++		// returns after that wait ended, so its rotated token can still be staged.
++		return refreshPromise;
+ 	}
+ 
+ 	/**
+@@ -1187,9 +1788,10 @@
+ 			// refreshes and direct force-refresh callers mint, unless the stored row
+ 			// already holds a token the provider has not rejected.
+ 			const stale: OAuthCredential = { ...attempted, expires: 0 };
+-			let refreshed: OAuthCredentials;
+ 			try {
+-				refreshed = await this.#refreshSingleFlight(
++				// Every selected refresh operation publishes or adopts its winning row, so
++				// only its settlement matters here; the authoritative row is re-read below.
++				await this.#refreshSingleFlight(
+ 					provider as Provider,
+ 					stale,
+ 					id,
+@@ -1214,17 +1816,13 @@
+ 				}
+ 				throw error;
+ 			}
+-			// Preserve credential-subtype metadata, such as MCP token endpoints,
+-			// that the provider's bare OAuth response cannot reproduce.
+-			const updated = mergeRefreshedCredential(attempted, refreshed);
+-			// Persist by id: the array may have been reordered/shrunk while the
+-			// refresh was in flight, so the pre-await positional index is unsafe. A
+-			// -1 means the row was disabled/removed mid-refresh — surface that as a
+-			// miss rather than implying a live row the snapshot won't contain.
+-			if (this.#deps.pool.replaceById(provider, id, updated) === -1) {
++			// Every selected refresh operation publishes or adopts its winning row.
++			// No consumer may merge pre-await metadata or persist the result again.
++			const current = this.#deps.store.listAuthCredentials(provider).find(row => row.id === id);
++			if (current?.credential.type !== "oauth") {
+ 				throw new AIError.ValidationError(`No credential with id=${id}`);
+ 			}
+-			return snapshotEntry(id, provider, updated);
++			return snapshotEntry(id, provider, current.credential);
+ 		}
+ 		throw new AIError.ValidationError(`No credential with id=${id}`);
+ 	}
+--- a/pi-ai/src/auth/select.ts
++++ b/pi-ai/src/auth/select.ts
+@@ -28,7 +28,7 @@
+ 	type RankedOAuthCandidate,
+ 	type UsageRankingResult,
+ } from "./rank";
+-import { mergeRefreshedCredential, OAUTH_REFRESH_SKEW_MS, type OAuthRefresher } from "./refresh";
++import { OAUTH_REFRESH_SKEW_MS, type OAuthRefresher } from "./refresh";
+ import type { AuthCredentialStore } from "./store";
+ import {
+ 	type ApiKeyCredential,
+@@ -836,7 +836,7 @@
+ 					const refreshTarget = force
+ 						? { ...candidate.selection.credential, expires: 0 }
+ 						: candidate.selection.credential;
+-					const refreshedCredentials = await this.#deps.refresher.refresh(
++					await this.#deps.refresher.refresh(
+ 						provider,
+ 						refreshTarget,
+ 						credentialId,
+@@ -844,23 +844,12 @@
+ 						force ? options?.refreshReason : undefined,
+ 						rejectedAccess,
+ 					);
+-					const beforeRefresh = candidate.selection.credential;
+-					const updated = mergeRefreshedCredential(beforeRefresh, refreshedCredentials);
+-					if (credentialId !== undefined && authCredentialEquals(beforeRefresh, updated)) {
+-						// The await may have allowed a peer to replace/remove this row or
+-						// compact its index. Rebind by id without writing the cached result.
+-						if (!this.#syncOAuthSelectionFromStore(provider, candidate.selection, credentialId)) {
+-							preflightFailures.add(candidate);
+-						}
+-						return;
+-					}
+-					candidate.selection.credential = updated;
+-					if (credentialId !== undefined) {
+-						const idx = this.#deps.pool.replaceById(provider, credentialId, updated);
+-						if (idx !== -1) candidate.selection.index = idx;
+-					} else {
+-						const rowId = this.#deps.pool.entries(provider)[candidate.selection.index]?.id;
+-						if (rowId !== undefined) this.#deps.pool.replaceById(provider, rowId, updated);
++					// Refresh publishes the winner, regardless of the selected hook.
++					if (
++						credentialId === undefined ||
++						!this.#syncOAuthSelectionFromStore(provider, candidate.selection, credentialId)
++					) {
++						preflightFailures.add(candidate);
+ 					}
+ 				} catch (error) {
+ 					// A failed preflight already exercised the provider refresh path.
+@@ -1130,6 +1119,7 @@
+ 		}
+ 
+ 		try {
++			const checkedAccountId = selection.credential.accountId;
+ 			let result: { newCredentials: OAuthCredentials; apiKey: string } | null;
+ 			const customProvider = getOAuthProvider(provider);
+ 			if (customProvider) {
+@@ -1161,16 +1151,13 @@
+ 				result = await getOAuthApiKey(provider as OAuthProvider, oauthCreds);
+ 			}
+ 			if (!result) return undefined;
+-			const updated = mergeRefreshedCredential(selection.credential, result.newCredentials);
+-			if (credentialId !== undefined) {
+-				const idx = this.#deps.pool.replaceById(provider, credentialId, updated);
+-				if (idx !== -1) selection.index = idx;
+-			} else {
+-				const rowId = this.#deps.pool.entries(provider)[selection.index]?.id;
+-				if (rowId !== undefined) this.#deps.pool.replaceById(provider, rowId, updated);
++			if (credentialId === undefined || !this.#syncOAuthSelectionFromStore(provider, selection, credentialId)) {
++				return undefined;
+ 			}
++			const updated = selection.credential;
++			if (updated.access !== result.newCredentials.access) return undefined;
+ 			if ((checkUsage && !allowBlocked) || hasPlanRequirement) {
+-				const sameAccount = selection.credential.accountId === updated.accountId;
++				const sameAccount = checkedAccountId === updated.accountId;
+ 				if (!usageChecked || !sameAccount) {
+ 					usage = await this.#deps.usage.report(provider, updated, {
+ 						...options,
+--- a/pi-ai/src/auth/sqlite-credential-store.ts
++++ b/pi-ai/src/auth/sqlite-credential-store.ts
+@@ -5,6 +5,7 @@
+  * share the same interface.
+  */
+ import type { Database, Statement } from "bun:sqlite";
++import { createHash } from "node:crypto";
+ import * as fs from "node:fs/promises";
+ import * as path from "node:path";
+ import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+@@ -18,7 +19,14 @@
+ 	logger,
+ 	openSqliteDatabase,
+ } from "@oh-my-pi/pi-utils";
+-import type { AuthCredentialStore, CredentialRefreshLeaseFence, CredentialRefreshLeaseHolder } from "./store";
++import type {
++	AuthCredentialStore,
++	CredentialRefreshExchange,
++	CredentialRefreshExchangeInspection,
++	CredentialRefreshLeaseFence,
++	CredentialRefreshLeaseHolder,
++	CredentialRefreshReleaseOutcome,
++} from "./store";
+ import type {
+ 	AuthCredential,
+ 	DisabledCredentialSummary,
+@@ -97,6 +105,54 @@
+ 	disabled_cause: string | null;
+ };
+ 
++/** Only future admitted exchanges populate this journal; old token bytes are never copied into it. */
++type RefreshExchangeRow = {
++	generation: string;
++	owner: string;
++	expected_hash: string;
++	replacement_data: string | null;
++};
++
++function refreshExchangeFingerprint(data: string): { generation: string; expectedHash: string } {
++	const credential = JSON.parse(data) as OAuthCredentials;
++	return {
++		generation: createHash("sha256").update(credential.refresh || credential.access).digest("hex"),
++		expectedHash: createHash("sha256").update(data).digest("hex"),
++	};
++}
++
++/**
++ * Opaque consent token for one unresolved exchange: the row's exact bytes plus
++ * the exchange's immutable identity. Deliberately excludes the write-lease
++ * owner, which changes on every attempt, so a fence stays valid across lease
++ * renewal but never across a replaced marker or a rewritten row.
++ */
++function refreshExchangeFence(data: string, exchange: RefreshExchangeRow): string {
++	return createHash("sha256")
++		.update(`${data}\u0000${exchange.generation}\u0000${exchange.owner}\u0000${exchange.expected_hash}`)
++		.digest("hex");
++}
++
++/** Null refers to the unchanged refresh secret in the exact hash-fenced current row. */
++function serializeRefreshReplacement(expectedData: string, credential: OAuthCredential): string {
++	const { type: _type, ...fields } = credential;
++	const replacement: Omit<OAuthCredentials, "refresh"> & { refresh: string | null } = fields;
++	if (replacement.refresh === (JSON.parse(expectedData) as OAuthCredentials).refresh) {
++		replacement.refresh = null;
++	}
++	return JSON.stringify(replacement);
++}
++
++/** Called only after the active row and journal's expected hash have both matched. */
++function deserializeRefreshReplacement(expectedData: string, data: string): OAuthCredential {
++	const replacement = JSON.parse(data) as Omit<OAuthCredentials, "refresh"> & { refresh: string | null };
++	return {
++		type: "oauth",
++		...replacement,
++		refresh: replacement.refresh ?? (JSON.parse(expectedData) as OAuthCredentials).refresh,
++	};
++}
++
+ function storesSerializedCredential(row: CredentialStateRow, serialized: SerializedCredentialRecord): boolean {
+ 	return (
+ 		row.data === serialized.data &&
+@@ -435,6 +491,11 @@
+ 	#releaseCredentialRefreshLeaseStmt: Statement;
+ 	#getCredentialStateStmt: Statement;
+ 	#holdsCredentialRefreshLeaseStmt: Statement;
++	#getRefreshExchangeStmt: Statement;
++	#reserveRefreshExchangeStmt: Statement;
++	#stageRefreshResultStmt: Statement;
++	#deleteRefreshExchangeStmt: Statement;
++	#dischargeRefreshExchangeStmt: Statement;
+ 	#credentialBlockReconcileAfter: Map<string, number> = new Map();
+ 	#insertUsageHistoryStmt: Statement;
+ 	#lastUsageHistoryStmt: Statement;
+@@ -570,6 +631,32 @@
+ 		this.#holdsCredentialRefreshLeaseStmt = this.#db.prepare(
+ 			"SELECT 1 FROM auth_credential_refresh_leases WHERE credential_id = ? AND owner = ? AND expires_at_ms > ?",
+ 		);
++		this.#getRefreshExchangeStmt = this.#db.prepare(
++			"SELECT generation, owner, expected_hash, replacement_data FROM auth_credential_refresh_exchanges WHERE credential_id = ?",
++		);
++		this.#reserveRefreshExchangeStmt = this.#db.prepare(
++			`INSERT INTO auth_credential_refresh_exchanges (credential_id, generation, owner, expected_hash)
++			VALUES (?, ?, ?, ?)
++			ON CONFLICT(credential_id) DO UPDATE SET
++				generation = excluded.generation, owner = excluded.owner,
++				expected_hash = excluded.expected_hash, replacement_data = NULL`,
++		);
++		this.#stageRefreshResultStmt = this.#db.prepare(
++			`UPDATE auth_credential_refresh_exchanges SET replacement_data = ?
++			WHERE credential_id = ? AND generation = ? AND owner = ? AND expected_hash = ?
++				AND replacement_data IS NULL`,
++		);
++		this.#deleteRefreshExchangeStmt = this.#db.prepare(
++			"DELETE FROM auth_credential_refresh_exchanges WHERE credential_id = ?",
++		);
++		// A known rejection removes its own pending marker and nothing else: the
++		// reservation identity (generation + expected hash + owner) fences it, and a
++		// staged replacement is excluded because it is a minted token.
++		this.#dischargeRefreshExchangeStmt = this.#db.prepare(
++			`DELETE FROM auth_credential_refresh_exchanges
++			WHERE credential_id = ? AND generation = ? AND expected_hash = ? AND owner = ?
++				AND replacement_data IS NULL`,
++		);
+ 		this.#insertUsageHistoryStmt = this.#db.prepare(
+ 			"INSERT INTO usage_history (recorded_at, provider, account_key, email, account_id, limit_id, label, window_label, used_fraction, status, resets_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+ 		);
+@@ -693,6 +780,17 @@
+ 			CREATE INDEX IF NOT EXISTS idx_client_usage_series ON client_usage(install_id, provider, model, recorded_at);
+ 			CREATE INDEX IF NOT EXISTS idx_client_usage_recorded ON client_usage(recorded_at);
+ 		`);
++		// Additive, empty journal: do not enumerate or rewrite existing credential data.
++		// FULL synchronization makes the reservation durable before the external side effect.
++		this.#db.run(`
++			CREATE TABLE IF NOT EXISTS auth_credential_refresh_exchanges (
++				credential_id INTEGER PRIMARY KEY,
++				generation TEXT NOT NULL,
++				owner TEXT NOT NULL,
++				expected_hash TEXT NOT NULL,
++				replacement_data TEXT
++			);
++		`);
+ 		this.#ensureClientUsageAppColumn();
+ 
+ 		if (!this.#authCredentialsTableExists()) {
+@@ -723,7 +821,6 @@
+ 			this.#createAuthCredentialBlockCompatibilityObjects();
+ 		}
+ 		this.#createAuthChangeTrackingObjects();
+-		this.#backfillCredentialIdentityKeys();
+ 		// Rewriting an already-current version row is a no-op write transaction
+ 		// on every boot; only persist when the recorded version actually changes.
+ 		if (recordedVersion !== AUTH_SCHEMA_VERSION && schemaVersion <= AUTH_SCHEMA_VERSION) {
+@@ -1259,33 +1356,6 @@
+ 		migrate.immediate();
+ 	}
+ 
+-	#backfillCredentialIdentityKeys(): void {
+-		const selectRowsStmt = this.#db.prepare(
+-			"SELECT id, provider, credential_type, data, disabled_cause, identity_key FROM auth_credentials WHERE identity_key IS NULL ORDER BY id ASC",
+-		);
+-		let rows: AuthRow[];
+-		try {
+-			rows = selectRowsStmt.all() as AuthRow[];
+-		} finally {
+-			selectRowsStmt.finalize();
+-		}
+-		if (rows.length === 0) return;
+-
+-		let updateIdentity: Statement | null = null;
+-		try {
+-			for (const row of rows) {
+-				const identityKey = resolveRowCredentialIdentityKey(row.provider, row);
+-				// Rows whose identity cannot be derived stay NULL; writing NULL over
+-				// NULL would just burn a write transaction on every boot.
+-				if (identityKey === null) continue;
+-				updateIdentity ??= this.#db.prepare("UPDATE auth_credentials SET identity_key = ? WHERE id = ?");
+-				updateIdentity.run(identityKey, row.id);
+-			}
+-		} finally {
+-			updateIdentity?.finalize();
+-		}
+-	}
+-
+ 	// ─── AuthCredentialStore interface ──────────────────────────────────────
+ 
+ 	listAuthCredentials(provider?: string): StoredAuthCredential[] {
+@@ -1819,6 +1889,161 @@
+ 		}
+ 	}
+ 
++	/**
++	 * Runs one refresh-exchange journal transaction with WAL fsync-on-commit. The shared
++	 * agent.db connection keeps upstream's NORMAL default: FULL on the whole connection
++	 * made every unrelated commit (model usage, command usage, perf, usage history) an
++	 * fsync and starved concurrent writers past `busy_timeout`. `PRAGMA synchronous` is a
++	 * no-op inside an open transaction, so these four must not be called from one.
++	 */
++	#withFullSync<T>(run: () => T): T {
++		this.#db.run("PRAGMA synchronous=FULL");
++		try {
++			return run();
++		} finally {
++			this.#db.run("PRAGMA synchronous=NORMAL");
++		}
++	}
++
++	reserveCredentialRefreshExchange(
++		id: number,
++		expectedData: string,
++		lease: CredentialRefreshLeaseFence,
++	): CredentialRefreshExchange | undefined {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		return this.#withFullSync(() => this.#db.transaction((): CredentialRefreshExchange | undefined => {
++			const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++			if (
++				!row || row.credential_type !== "oauth" || row.disabled_cause !== null || row.data !== expectedData ||
++				!this.#holdsCredentialRefreshLeaseStmt.get(id, lease.owner, lease.nowMs)
++			) return undefined;
++			const prior = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++			if (prior?.generation === generation) {
++				// Lease expiry never proves a POST was unconsumed. A metadata-only
++				// rewrite also cannot clear ambiguity or authorize stale result recovery.
++				return {
++					status: "pending",
++					credential: prior.expected_hash === expectedHash && prior.replacement_data !== null
++						? deserializeRefreshReplacement(expectedData, prior.replacement_data)
++						: undefined,
++				};
++			}
++			this.#reserveRefreshExchangeStmt.run(id, generation, lease.owner, expectedHash);
++			return { status: "reserved" };
++		}).immediate());
++	}
++
++	stageCredentialRefreshResult(id: number, expectedData: string, owner: string, credential: OAuthCredential): boolean {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		return this.#withFullSync(() => this.#db.transaction(() => {
++			const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++			if (!row || row.disabled_cause !== null || row.credential_type !== "oauth" || row.data !== expectedData) return false;
++			const prior = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++			if (prior?.generation !== generation || prior.owner !== owner || prior.expected_hash !== expectedHash) return false;
++			const replacement = serializeRefreshReplacement(expectedData, credential);
++			if (prior.replacement_data !== null) return prior.replacement_data === replacement;
++			return this.#stageRefreshResultStmt.run(replacement, id, generation, owner, expectedHash).changes === 1;
++		}).immediate());
++	}
++
++	commitCredentialRefreshResult(
++		id: number,
++		expectedData: string,
++		credential: OAuthCredential,
++		lease: CredentialRefreshLeaseFence,
++	): boolean {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		return this.#withFullSync(() => this.#db.transaction(() => {
++			const prior = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++			if (prior?.generation !== generation || prior.expected_hash !== expectedHash || prior.replacement_data === null) return false;
++			const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++			if (!row || row.disabled_cause !== null || row.credential_type !== "oauth" || row.data !== expectedData) return false;
++			if (serializeRefreshReplacement(expectedData, credential) !== prior.replacement_data) return false;
++			if (!this.tryUpdateAuthCredentialIfMatches(id, expectedData, credential, lease)) return false;
++			// The row write and retirement must commit together, including providers
++			// that successfully return the same (non-rotating) refresh token.
++			this.#deleteRefreshExchangeStmt.run(id);
++			return true;
++		}).immediate());
++	}
++
++	inspectUnresolvedCredentialRefreshExchange(id: number): CredentialRefreshExchangeInspection {
++		const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++		if (!row) return { eligible: false, reason: "no-row" };
++		if (row.credential_type !== "oauth") return { eligible: false, reason: "not-oauth" };
++		if (row.disabled_cause !== null) return { eligible: false, reason: "row-disabled" };
++		const exchange = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++		if (!exchange) return { eligible: false, reason: "no-exchange" };
++		if (exchange.replacement_data !== null) return { eligible: false, reason: "staged-replacement" };
++		let expiresAt: number | undefined;
++		try {
++			const expires = (JSON.parse(row.data) as OAuthCredentials).expires;
++			expiresAt = typeof expires === "number" ? expires : undefined;
++		} catch {
++			expiresAt = undefined;
++		}
++		return {
++			eligible: true,
++			reason: "pending",
++			fence: refreshExchangeFence(row.data, exchange),
++			...(expiresAt === undefined ? {} : { expiresAt }),
++		};
++	}
++
++	readStagedCredentialRefreshResult(id: number, expectedData: string): OAuthCredential | undefined {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++		if (!row || row.credential_type !== "oauth" || row.disabled_cause !== null || row.data !== expectedData) {
++			return undefined;
++		}
++		const exchange = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++		// A marker for a different generation or a rewritten row cannot describe this
++		// row's successor, and a pending marker has no result to hand back.
++		if (exchange?.generation !== generation || exchange.expected_hash !== expectedHash) return undefined;
++		return exchange.replacement_data === null
++			? undefined
++			: deserializeRefreshReplacement(expectedData, exchange.replacement_data);
++	}
++
++	releaseUnresolvedCredentialRefreshExchange(
++		id: number,
++		expectedData: string,
++		fence: string,
++		lease: CredentialRefreshLeaseFence,
++	): CredentialRefreshReleaseOutcome {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		return this.#withFullSync(() => this.#db.transaction((): CredentialRefreshReleaseOutcome => {
++			const row = this.#getCredentialStateStmt.get(id) as CredentialStateRow | null;
++			if (!row || row.credential_type !== "oauth" || row.disabled_cause !== null || row.data !== expectedData) {
++				return "row-changed";
++			}
++			if (!this.#holdsCredentialRefreshLeaseStmt.get(id, lease.owner, lease.nowMs)) return "lease-not-held";
++			const exchange = this.#getRefreshExchangeStmt.get(id) as RefreshExchangeRow | null;
++			if (!exchange) return "not-pending";
++			// A staged replacement is already recoverable and is never deleted here, so
++			// it is reported before the fence: the caller may then publish it through
++			// the ordinary path even though its inspection carried no fence.
++			if (exchange.replacement_data !== null) return "staged-replacement-present";
++			if (refreshExchangeFence(row.data, exchange) !== fence) return "fence-mismatch";
++			// Replace the released marker with this owner's reservation in the SAME
++			// transaction. Returning the generation to a marker-less state would be a
++			// durability hole: a crash or a busy transaction between release and the
++			// caller's own reservation would leave an active row with no ambiguity
++			// marker, so the next ordinary refresh would reserve and POST a possibly
++			// consumed token with no fresh consent.
++			this.#reserveRefreshExchangeStmt.run(id, generation, lease.owner, expectedHash);
++			return "released";
++		}).immediate());
++	}
++
++	dischargeCredentialRefreshExchange(id: number, expectedData: string, owner: string): boolean {
++		const { generation, expectedHash } = refreshExchangeFingerprint(expectedData);
++		const result = this.#dischargeRefreshExchangeStmt.run(id, generation, expectedHash, owner) as {
++			changes: number;
++		};
++		return result.changes === 1;
++	}
++
+ 	recordUsageSnapshots(entries: UsageHistoryEntry[]): void {
+ 		try {
+ 			for (const entry of entries) {
+@@ -2167,6 +2392,11 @@
+ 		this.#releaseCredentialRefreshLeaseStmt.finalize();
+ 		this.#getCredentialStateStmt.finalize();
+ 		this.#holdsCredentialRefreshLeaseStmt.finalize();
++		this.#getRefreshExchangeStmt.finalize();
++		this.#reserveRefreshExchangeStmt.finalize();
++		this.#stageRefreshResultStmt.finalize();
++		this.#deleteRefreshExchangeStmt.finalize();
++		this.#dischargeRefreshExchangeStmt.finalize();
+ 		this.#db.close();
+ 	}
+ }
+--- a/pi-ai/src/auth/store.ts
++++ b/pi-ai/src/auth/store.ts
+@@ -1,4 +1,3 @@
+-import type { OAuthCredentials } from "../registry/oauth/types";
+ import type { Provider } from "../types";
+ import type {
+ 	ClientUsageIdentity,
+@@ -56,7 +55,13 @@
+ 	 * Remote stores await broker persistence before updating their snapshot.
+ 	 */
+ 	deleteAuthCredential(id: number, disabledCause: string): Promise<boolean>;
+-	tryDisableAuthCredentialIfMatches(
++	/**
++	 * Automatic disable is an authoritative-store capability: compare the full
++	 * row and optional owner fence before disabling. Remote mirrors omit it;
++	 * their durable broker owner handles genuine grant failure during refresh.
++	 * Absence never authorizes an unconditional delete fallback.
++	 */
++	tryDisableAuthCredentialIfMatches?(
+ 		id: number,
+ 		expectedData: string,
+ 		disabledCause: string,
+@@ -140,6 +145,104 @@
+ 	expiresAtMs: number;
+ }
+ 
++/** A pending generation is never sent again; only a staged replacement can recover it. */
++export type CredentialRefreshExchange =
++	| { status: "reserved" }
++	| { status: "pending"; credential?: OAuthCredential };
++
++/**
++ * Why an exchange cannot be released. `"pending"` is the only releasable state;
++ * every other value is a refusal the caller can show without touching the row.
++ */
++export type CredentialRefreshExchangeReason =
++	| "pending"
++	| "no-row"
++	| "not-oauth"
++	| "row-disabled"
++	| "no-exchange"
++	| "staged-replacement";
++
++/** Read-only, redacted view of one row's durable refresh exchange. */
++export interface CredentialRefreshExchangeInspection {
++	/** True only when an unresolved exchange exists with nothing else blocking its release. */
++	eligible: boolean;
++	/** `"pending"` is the only eligible reason; every other value names the refusal. */
++	reason: CredentialRefreshExchangeReason;
++	/** Opaque fence the release must present; present only when `eligible`. */
++	fence?: string;
++	/** Access-token expiry (ms) of the row, for display; never the token. */
++	expiresAt?: number;
++}
++
++/** Outcome of a fenced release attempt. Only `"released"` removed the exchange. */
++export type CredentialRefreshReleaseOutcome =
++	| "released"
++	| "not-pending"
++	| "staged-replacement-present"
++	| "row-changed"
++	| "fence-mismatch"
++	| "lease-not-held";
++
++/** Durable exchange journal, separate from expiring write ownership and ordinary credential rows. */
++export interface CredentialRefreshExchangeStore {
++	/** Atomically reserve a future exchange or read its prior outcome. Undefined means the row/lease changed. */
++	reserveCredentialRefreshExchange(
++		id: number,
++		expectedData: string,
++		lease: CredentialRefreshLeaseFence,
++	): CredentialRefreshExchange | undefined;
++	/** Only the original exchange owner may stage a result, even after its write lease expires. Never updates credentials. */
++	stageCredentialRefreshResult(id: number, expectedData: string, owner: string, credential: OAuthCredential): boolean;
++	/** Publish a staged result and retire its reservation atomically, fenced by the current row and write owner. */
++	commitCredentialRefreshResult(
++		id: number,
++		expectedData: string,
++		credential: OAuthCredential,
++		lease: CredentialRefreshLeaseFence,
++	): boolean;
++	/**
++	 * Read-only, redacted inspection of one row's exchange. Never mutates, and
++	 * never returns token bytes; the fence it hands back is the only value the
++	 * release accepts.
++	 */
++	inspectUnresolvedCredentialRefreshExchange(id: number): CredentialRefreshExchangeInspection;
++	/**
++	 * Read-only recovery of a replacement staged for exactly this generation and
++	 * row bytes. Never writes: a pending marker, another generation or a rewritten
++	 * row yields undefined, so a caller outside the journal protocol can adopt a
++	 * still-valid minted result without creating a new exchange.
++	 */
++	readStagedCredentialRefreshResult(id: number, expectedData: string): OAuthCredential | undefined;
++	/**
++	 * Delete this exchange's pending marker when its outcome is KNOWN to be a
++	 * rejection rather than an ambiguity: the caller observed the provider refuse
++	 * the grant it sent, so nothing was minted and nothing can be recovered. Fenced
++	 * on the reservation identity — generation, expected hash and the owner that
++	 * reserved it — so a peer's newer attempt and a staged replacement are never
++	 * touched (a staged replacement is a minted token and belongs to commit).
++	 * Never rewrites, disables or deletes the credential row; the next ordinary
++	 * refresh then reserves afresh and re-reads the store.
++	 */
++	dischargeCredentialRefreshExchange?(id: number, expectedData: string, owner: string): boolean;
++	/**
++	 * Retire one unresolved exchange when the caller holds the row's refresh
++	 * lease and the row is byte-identical to `expectedData`. A staged
++	 * replacement is reported instead of released (publishing it never deletes
++	 * the marker, so no fence is required for that report); otherwise `fence`
++	 * must still match the exchange. On success the released marker is replaced
++	 * by the caller's own reservation in the same transaction, so the generation
++	 * is never left unattested, and the caller continues from `"reserved"`
++	 * without a second reservation. Never disables, deletes or rewrites the
++	 * credential row.
++	 */
++	releaseUnresolvedCredentialRefreshExchange(
++		id: number,
++		expectedData: string,
++		fence: string,
++		lease: CredentialRefreshLeaseFence,
++	): CredentialRefreshReleaseOutcome;
++}
++
+ /** Usage history and client-observed request accounting. */
+ export interface UsageLedgerStore {
+ 	/**
+@@ -175,11 +278,12 @@
+ 	 *
+ 	 * Precedence: `AuthStorageOptions.refreshOAuthCredential` > this hook > local.
+ 	 *
+-	 * `signal` propagates the agent's cancel (ESC, request abort, …) all the
+-	 * way to the broker fetch so a hung connection can't strand the caller
+-	 * for `timeoutMs * (maxRetries + 1)`.
+-	 * `reason` distinguishes provider-auth recovery from generic/MCP refreshes
+-	 * that must always mint a new access token.
++	 * Returns the authoritative complete OAuth row, including intentional field
++	 * absence, and updates the store snapshot before resolving. Callers must
++	 * project that row instead of merging their pre-refresh metadata.
++	 * `signal` bounds the shared refresh operation, not an individual waiter's
++	 * cancellation. `reason` distinguishes provider-auth recovery from
++	 * generic/MCP refreshes that must always mint a new access token.
+ 	 */
+ 	refreshOAuthCredential(
+ 		provider: Provider,
+@@ -187,7 +291,7 @@
+ 		credential: OAuthCredential,
+ 		signal?: AbortSignal,
+ 		reason?: OAuthRefreshReason,
+-	): Promise<OAuthCredentials>;
++	): Promise<OAuthCredential>;
+ 	/**
+ 	 * Optional async pre-read hook invoked after AuthStorage selects a stored
+ 	 * credential but before it returns that credential for an outbound request.
+@@ -255,6 +359,7 @@
+ 		CredentialCacheStore,
+ 		Partial<CredentialBlockStore>,
+ 		Partial<CredentialRefreshLeaseStore>,
++		Partial<CredentialRefreshExchangeStore>,
+ 		Partial<UsageLedgerStore>,
+ 		Partial<CredentialUpstream> {}
+ 
+@@ -269,3 +374,18 @@
+ 		typeof store.renewCredentialRefreshLease === "function"
+ 	);
+ }
++
++/** Local token exchanges require the whole journal contract, not just a lease. */
++export function hasRefreshExchanges(
++	store: AuthCredentialStore,
++): store is AuthCredentialStore & CredentialRefreshLeaseStore & CredentialRefreshExchangeStore {
++	return (
++		hasRefreshLeases(store) &&
++		typeof store.reserveCredentialRefreshExchange === "function" &&
++		typeof store.stageCredentialRefreshResult === "function" &&
++		typeof store.commitCredentialRefreshResult === "function" &&
++		typeof store.inspectUnresolvedCredentialRefreshExchange === "function" &&
++		typeof store.readStagedCredentialRefreshResult === "function" &&
++		typeof store.releaseUnresolvedCredentialRefreshExchange === "function"
++	);
++}
+--- a/pi-ai/src/auth/types.ts
++++ b/pi-ai/src/auth/types.ts
+@@ -372,6 +372,14 @@
+ 	 * Must return updated {@link OAuthCredentials} with at least `access` and
+ 	 * `expires`. `refresh` may be an opaque sentinel (e.g. `"__remote__"`) when
+ 	 * the actual refresh token never leaves the broker.
++	 * AuthStorage publishes the returned value only while the observed full row
++	 * still matches; a concurrent replacement or logout wins instead. An override
++	 * need not mutate the store snapshot itself.
++	 *
++	 * Local overrides run after durable generation reservation. Perform one grant
++	 * attempt only: transport errors/timeouts cannot authorize replay of that grant.
++	 * Return a received replacement even if the owner signal has since timed out;
++	 * storage stages late results for recovery under a new write lease.
+ 	 */
+ 	refreshOAuthCredential?: (
+ 		provider: Provider,
+@@ -649,14 +657,40 @@
+ 	canRefresh?: (credential: T) => boolean;
+ 	refreshSkewMs?: number;
+ 	signal?: AbortSignal;
++	/** Re-read the current row on failure; never revive a removed row or authorize an unresolved generation's redemption. */
+ 	keepCredentialOnRefreshFailure?: boolean | ((error: unknown) => boolean);
+ 	onRefreshFailure?: (error: unknown) => void;
+ 	/** How long the caller waits (for the lease and the exchange); the exchange itself runs on until its backstop. */
+ 	refreshTimeoutMs?: number;
++	/**
++	 * One admitted exchange. Local rows require durable exchange storage; once
++	 * invoked, failure is conservatively ambiguous unless a replacement is known.
++	 * Validate refresh prerequisites with canRefresh before reservation. Caller
++	 * cancellation owns only its wait after admission, not this bounded operation.
++	 * Broker-sentinel rows delegate to oauth.refresh(), which publishes the
++	 * authoritative row; their callback result is not merged or persisted again.
++	 */
+ 	refresh: (credential: T, signal?: AbortSignal) => Promise<OAuthCredentials>;
++	/** Applied only to locally owned/value-returning exchanges, never an already-published broker row. */
+ 	mergeRefreshedCredential?: (credential: T, refreshed: OAuthCredentials) => T;
+ 	isDefinitiveFailure?: (error: unknown) => boolean;
++	/**
++	 * Advisory exchange (a background usage poll). It keeps the journal's
++	 * lost-outcome protection, but a provider reply that definitively rejects the
++	 * grant is a KNOWN outcome: its pending marker is discharged instead of being
++	 * left to refuse the next interactive refresh. The row is never disabled from
++	 * here — an interactive request still owns that decision.
++	 */
++	advisory?: boolean;
+ 	disabledCause?: (error: unknown) => string;
++	/**
++	 * Explicit unresolved-exchange unlock. The caller supplies the fence captured
++	 * before confirmation; the shared owned path persists a held result first,
++	 * then releases that exact exchange, then runs at most one local refresh.
++	 * Refuses instead of waiting when a peer holds the row lease, and never
++	 * disables the credential.
++	 */
++	unlock?: { fence: string };
+ }
+ 
+ /** Result of a stored OAuth refresh attempt. */
+@@ -664,6 +698,8 @@
+ 	credential: T | undefined;
+ 	refreshed: boolean;
+ 	removed: boolean;
++	/** Verdict for the requested unlock; absent on an ordinary refresh. */
++	unlock?: StoredOAuthRefreshUnlockVerdict;
+ }
+ 
+ /** A saved-reset option bound to one provider and durable stored credential. */
+@@ -1084,6 +1120,62 @@
+ 	rejectedAccess?: string;
+ }
+ 
++/**
++ * Why one provider's OAuth refresh cannot be unlocked from this process.
++ * `"pending"` is the only eligible reason; the rest are refusals the caller
++ * reports without touching the credential store. `"not-applicable"` means the
++ * provider keeps no durable exchange journal at all, so an unresolved exchange
++ * cannot exist for it.
++ */
++export type OAuthRefreshUnlockReason =
++	| "pending"
++	| "no-credential"
++	| "credential-disabled"
++	| "no-exchange"
++	| "staged-replacement"
++	| "remote-credential"
++	| "unsupported-store"
++	| "delegated-runtime"
++	| "not-applicable";
++
++/** Redacted, read-only view of whether one provider's unresolved refresh can be unlocked here. */
++export interface OAuthRefreshUnlockInspection {
++	/** True only when a durable unresolved exchange exists and this process may release it. */
++	eligible: boolean;
++	/** Machine-readable state; `"pending"` is the only eligible value. */
++	reason: OAuthRefreshUnlockReason;
++	/** Row id the state describes, when an active OAuth row exists. */
++	credentialId?: number;
++	/** Access-token expiry (ms) of that row, for display; never the token. */
++	expiresAt?: number;
++	/** Opaque fence the release must present; present only when `eligible`. */
++	fence?: string;
++	/** True when THIS process holds a minted result it could not persist for that row. */
++	holdsUnstagedResult: boolean;
++}
++
++/** Options for {@link OAuthApi.unlockAndRefreshStored}. */
++export interface OAuthRefreshUnlockOptions {
++	/** Fence captured from {@link OAuthApi.inspectUnresolvedRefresh} before the user confirmed. */
++	fence: string;
++	signal?: AbortSignal;
++}
++
++/** Result of one explicit unlock attempt. Never contains token bytes. */
++export interface OAuthRefreshUnlockResult {
++	outcome: "refreshed" | "nothing-to-unlock" | "fence-mismatch" | "staged-result-recovered" | "failed" | "not-applicable";
++	/** New access-token expiry (ms) for `refreshed` and `staged-result-recovered`. */
++	expiresAt?: number;
++	/** Explanation for `failed`/`fence-mismatch`/`not-applicable`; never contains token bytes. */
++	error?: string;
++}
++
++/** Verdict the shared owned-refresh path reports back to an unlock caller. */
++export interface StoredOAuthRefreshUnlockVerdict {
++	outcome: OAuthRefreshUnlockResult["outcome"];
++	error?: string;
++}
++
+ /** OAuth login, access, account identity, and refresh operations. */
+ export interface OAuthApi {
+ 	/**
+@@ -1172,11 +1264,33 @@
+ 	refresh(id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions): Promise<AuthCredentialSnapshotEntry>;
+ 	/**
+ 	 * Refresh one stored OAuth credential under durable row ownership.
++	 * Local exchanges reserve their token generation before dispatch and persist
++	 * a replacement before returning it. Unknown outcomes require recovery or
++	 * sign-in, even after lease expiry; existing rows are not reclassified on startup.
+ 	 */
+ 	refreshStored<T extends OAuthCredential = OAuthCredential>(
+ 		provider: string,
+ 		options: StoredOAuthRefreshOptions<T>,
+ 	): Promise<StoredOAuthRefreshResult<T>>;
++	/**
++	 * Read-only, redacted inspection of one provider's durable refresh exchange.
++	 * Reports whether an unresolved exchange can be released by THIS process and
++	 * hands back the opaque fence the release must present. Local minting
++	 * runtimes only: remote/broker-backed and delegated refreshers, rows whose
++	 * refresh token lives in the broker, and stores without the exchange journal
++	 * all report `eligible: false` with a reason. Never returns tokens.
++	 */
++	inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection>;
++	/**
++	 * Release one fenced unresolved exchange and run at most one native token
++	 * exchange in the same lease, inside the shared owned-refresh path. A minted
++	 * result this process already holds is persisted and published first, with no
++	 * second POST; a staged replacement is published the same way. The fence is
++	 * checked transactionally, so a stale confirmation (a replaced marker, a peer
++	 * rotation, or a newer same-generation attempt) is refused. Never disables or
++	 * deletes the credential row, and never waits for a peer-owned lease.
++	 */
++	unlockAndRefreshStored(provider: string, options: OAuthRefreshUnlockOptions): Promise<OAuthRefreshUnlockResult>;
+ }
+ 
+ /**
+--- a/pi-ai/src/auth/usage.ts
++++ b/pi-ai/src/auth/usage.ts
+@@ -2,7 +2,6 @@
+ import { $pickenv, logger } from "@oh-my-pi/pi-utils";
+ import { getEnvApiKey } from "../env-api-key";
+ import * as AIError from "../error";
+-import type { OAuthCredentials } from "../registry/oauth/types";
+ import { providerPauseReason } from "../registry/oauth";
+ import type { Provider } from "../types";
+ import { resolveUsedFraction } from "../usage";
+@@ -36,7 +35,7 @@
+ import type { UsageCache, UsageRequestDescriptor } from "./usage-cache";
+ import type { CredentialPool } from "./pool";
+ import type { RankingStrategyResolver } from "../usage/registry";
+-import { mergeRefreshedOrganizationScope, OAUTH_REFRESH_SKEW_MS } from "./refresh";
++import { OAUTH_REFRESH_SKEW_MS } from "./refresh";
+ import type { OAuthRefresher } from "./refresh";
+ import { USAGE_REPORT_TTL_MS } from "./sqlite-credential-store";
+ import type { AuthCredentialStore } from "./store";
+@@ -72,25 +71,6 @@
+ 	};
+ }
+ 
+-/** Merge refreshed OAuth tokens and identity into a usage credential; used by probes and health. */
+-export function mergeRefreshedUsageCredential(
+-	credential: UsageCredential,
+-	refreshed: OAuthCredentials,
+-): UsageCredential {
+-	return {
+-		...credential,
+-		accessToken: refreshed.access,
+-		refreshToken: refreshed.refresh,
+-		expiresAt: refreshed.expires,
+-		accountId: refreshed.accountId ?? credential.accountId,
+-		projectId: refreshed.projectId ?? credential.projectId,
+-		email: refreshed.email ?? credential.email,
+-		enterpriseUrl: refreshed.enterpriseUrl ?? credential.enterpriseUrl,
+-		apiEndpoint: refreshed.apiEndpoint ?? credential.apiEndpoint,
+-		...mergeRefreshedOrganizationScope(credential, refreshed),
+-	};
+-}
+-
+ /** Dependencies for usage fetching and cache coordination; supplied by AuthStorage. */
+ export interface UsageServiceDeps {
+ 	store: AuthCredentialStore;
+@@ -186,34 +166,6 @@
+ 		this.#runtimeUsageProviderOverrides.delete(provider);
+ 	}
+ 
+-	/** Preserve the persisted OAuth row's login anchor and subtype metadata on usage-path refresh. */
+-	persistRefreshedCredential(
+-		provider: Provider,
+-		previous: UsageCredential,
+-		next: UsageCredential,
+-		credentialId = this.#deps.pool.findIdForUsageCredential(provider, previous),
+-	): void {
+-		if (credentialId === undefined) return;
+-		const entry = this.#deps.pool.entries(provider).find(candidate => candidate.id === credentialId);
+-		if (entry?.credential.type !== "oauth") return;
+-		this.#deps.pool.replaceById(provider, credentialId, {
+-			...entry.credential,
+-			access: next.accessToken ?? entry.credential.access,
+-			refresh: next.refreshToken ?? entry.credential.refresh,
+-			expires: next.expiresAt ?? entry.credential.expires,
+-			accountId: next.accountId ?? entry.credential.accountId,
+-			projectId: next.projectId ?? entry.credential.projectId,
+-			email: next.email ?? entry.credential.email,
+-			enterpriseUrl: next.enterpriseUrl ?? entry.credential.enterpriseUrl,
+-			apiEndpoint: next.apiEndpoint ?? entry.credential.apiEndpoint,
+-			orgId: next.orgId,
+-			orgName: next.orgName,
+-			region: next.region,
+-			inferenceRegion: next.inferenceRegion,
+-			activeOrganizationId: next.activeOrganizationId,
+-		});
+-	}
+-
+ 	/** Probe a provider endpoint, refreshing near-expiry OAuth tokens when possible. */
+ 	async #fetchUsageUncached(request: UsageRequestDescriptor, timeoutMs?: number): Promise<UsageReport | null> {
+ 		const providerImpl = this.providerFor(request.provider);
+@@ -236,55 +188,56 @@
+ 		) {
+ 			const refreshableCredential = buildRefreshableOauthCredential(request.credential);
+ 			if (refreshableCredential) {
++				const refreshableCredentialId = this.#deps.pool.findIdForUsageCredential(
++					request.provider,
++					request.credential,
++				);
++				if (refreshableCredentialId === undefined) {
++					this.#deps.cache.invalidateReport(request);
++					return null;
++				}
+ 				try {
+-					const refreshableCredentialId = this.#deps.pool.findIdForUsageCredential(
+-						request.provider,
+-						request.credential,
+-					);
+-					const refreshed = await this.#deps.refresher.refresh(
++					await this.#deps.refresher.refresh(
+ 						request.provider,
+ 						refreshableCredential,
+ 						refreshableCredentialId,
+ 						timeoutSignal,
+ 						"usage-probe",
+ 					);
+-					const refreshedCredential = mergeRefreshedUsageCredential(request.credential, refreshed);
+-					this.persistRefreshedCredential(
+-						request.provider,
+-						request.credential,
+-						refreshedCredential,
+-						refreshableCredentialId,
+-					);
+-					const refreshedAccountKey = usageCacheIdentity(refreshedCredential);
+-					if (refreshedAccountKey !== params.accountKey) {
+-						// The enclosing flight/cache/history belong to the original
+-						// identity. Fetch the winner only through its own request key.
+-						this.#deps.cache.invalidateReport(request);
+-						return null;
+-					}
+-					params = {
+-						...request,
+-						credential: refreshedCredential,
+-						accountKey: refreshedAccountKey,
+-						signal: timeoutSignal,
+-					};
+ 				} catch (error) {
+ 					const errorMsg = String(error);
+ 					if (request.credential.expiresAt <= Date.now() && AIError.isDefinitiveOAuthFailure(errorMsg)) {
+-						// The current access token is unusable, so don't replay an
+-						// old usage report after its rotating refresh token is revoked.
+-						// This changes cache state only; usage polling remains
+-						// non-authoritative about the credential lifecycle.
++						// Usage is advisory, but a definite rejection must not revive
++						// the old report under a canonical or legacy cache key.
+ 						this.#deps.cache.invalidateReport(request);
+ 					}
+-					// Usage polling is advisory. A refresh can fail while the current
+-					// access token remains valid inside the refresh skew, so probe with
+-					// that token and never mutate credential state from this path.
+-					this.logger?.debug("Usage credential refresh failed, using original credential", {
++					this.logger?.debug("Usage credential refresh failed, consulting current stored credential", {
+ 						provider: request.provider,
+ 						error: errorMsg,
+ 					});
+ 				}
++				// Success and advisory failure both project the current row. A
++				// concurrent logout/type replacement never authorizes old bearer use.
++				const latest = this.#deps.store.listAuthCredentials(request.provider)
++					.find(row => row.id === refreshableCredentialId)?.credential;
++				if (latest?.type !== "oauth") {
++					this.#deps.cache.invalidateReport(request);
++					return null;
++				}
++				const refreshedCredential = buildUsageCredential(latest);
++				const refreshedAccountKey = usageCacheIdentity(refreshedCredential);
++				if (refreshedAccountKey !== params.accountKey) {
++					// The enclosing flight/cache/history belong to the original
++					// identity. Fetch the winner only through its own request key.
++					this.#deps.cache.invalidateReport(request);
++					return null;
++				}
++				params = {
++					...request,
++					credential: refreshedCredential,
++					accountKey: refreshedAccountKey,
++					signal: timeoutSignal,
++				};
+ 			}
+ 		}
+ 
+--- a/pi-ai/src/registry/engine/refresh.ts
++++ b/pi-ai/src/registry/engine/refresh.ts
+@@ -9,7 +9,6 @@
+ import type { OAuthCredentials } from "../oauth/types";
+ import {
+ 	applyAfterExchange,
+-	applyUserinfo,
+ 	loadHeadersHook,
+ 	loadRefreshHook,
+ 	mapCredentials,
+@@ -84,9 +83,11 @@
+ 			context,
+ 			"token-refresh",
+ 		);
+-		throwIfCancelled(signal);
+-		let refreshed = mapCredentials(rule.credential, body, provider, credentials);
+-		refreshed = await applyUserinfo(rule.userinfo, refreshed, context);
++		// Identity enrichment belongs to login: an optional userinfo GET must
++		// never discard a received replacement before the durable owner stages it.
++		const refreshed = mapCredentials(rule.credential, body, provider, credentials);
++		refreshed.accountId ??= credentials.accountId;
++		refreshed.email ??= credentials.email;
+ 		return applyAfterExchange(rule.afterRefresh, refreshed, {
+ 			provider,
+ 			phase: "refresh",
+--- a/pi-ai/src/registry/oauth/anthropic.ts
++++ b/pi-ai/src/registry/oauth/anthropic.ts
+@@ -86,25 +86,25 @@
+ }
+ 
+ /**
+- * `anthropic-identity` hook: fills account (and, at login only, organization)
+- * identity from the bootstrap endpoint when the token response left it
+- * unset. The org an access token is scoped to is captured once at login and
+- * deliberately never refreshed — rewriting identity during background
+- * refreshes could silently re-key stored credentials.
++ * Resolve account/organization identity at login only. Optional bootstrap work
++ * must never delay persistence after a refresh token has already been rotated.
++ * Refresh preserves stored account identity; organization scope stays fixed.
+  */
+ export const anthropicIdentityHook: AfterExchangeHook = async (credentials, context): Promise<OAuthCredentials> => {
+-	const includeOrg = context.phase === "login";
+-	const orgSatisfied = !includeOrg || credentials.orgId !== undefined;
+-	if (credentials.accountId && credentials.email && orgSatisfied) return credentials;
++	if (context.phase === "refresh") {
++		credentials.accountId ??= context.stored?.accountId;
++		credentials.email ??= context.stored?.email;
++		return credentials;
++	}
++	if (credentials.accountId && credentials.email && credentials.orgId !== undefined) return credentials;
+ 	try {
+ 		const bootstrap = await fetchAnthropicBootstrapIdentity(credentials.access, context.fetch);
+ 		return {
+ 			...credentials,
+ 			accountId: credentials.accountId ?? bootstrap.accountId,
+ 			email: credentials.email ?? bootstrap.email,
+-			...(includeOrg
+-				? { orgId: credentials.orgId ?? bootstrap.orgId, orgName: credentials.orgName ?? bootstrap.orgName }
+-				: {}),
++			orgId: credentials.orgId ?? bootstrap.orgId,
++			orgName: credentials.orgName ?? bootstrap.orgName,
+ 		};
+ 	} catch {
+ 		return credentials;
+--- a/pi-ai/src/registry/oauth/factory-droid.ts
++++ b/pi-ai/src/registry/oauth/factory-droid.ts
+@@ -26,7 +26,7 @@
+ 		const [orgId] = body.workosOrgIds;
+ 		return typeof orgId === "string" && orgId ? orgId : undefined;
+ 	} catch {
+-		if (context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
++		if (context.phase === "login" && context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
+ 		return undefined;
+ 	}
+ }
+@@ -82,17 +82,17 @@
+ 			}
+ 		}
+ 	} catch (error) {
+-		if (context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
++		if (context.phase === "login" && context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
+ 		if (context.phase === "login") throw error;
+ 		// Preserve identity only when this is still the same selected organization.
+ 	}
+-	if (context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
++	if (context.phase === "login" && context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
+ 	return { identity, accepted: false, failure: unresolved() };
+ }
+ 
+ /** Resolve canonical Factory identity; residency chooses the host, inference scope chooses eligible routes. */
+ export const attachFactoryDroidRegion: AfterExchangeHook = async (credentials, context) => {
+-	if (context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
++	if (context.phase === "login" && context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
+ 	if (!isRecord(context.raw) || typeof context.raw.refresh_token !== "string" || !credentials.refresh) {
+ 		throw new AIError.OAuthError("Factory token response missing refresh token", { kind: "validation" });
+ 	}
+@@ -138,7 +138,9 @@
+ 				);
+ 			} catch {
+ 				// Fall through: the identity check reports why the bearer is unusable.
+-				if (context.signal?.aborted) throw new AIError.LoginCancelledError("Login cancelled");
++				if (context.phase === "login" && context.signal?.aborted) {
++					throw new AIError.LoginCancelledError("Login cancelled");
++				}
+ 			}
+ 			if (scoped) {
+ 				// The scoped grant rotated the refresh token, so a refresh keeps it either way.
+--- a/pi-ai/src/registry/oauth/snowflake.ts
++++ b/pi-ai/src/registry/oauth/snowflake.ts
+@@ -25,7 +25,7 @@
+ 	kind: "token-exchange" | "token-refresh",
+ 	signal?: AbortSignal,
+ ): Promise<SnowflakeTokens> {
+-	signal?.throwIfAborted();
++	if (kind === "token-exchange") signal?.throwIfAborted();
+ 	if (!response.ok) {
+ 		const operation = kind === "token-exchange" ? "exchange" : "refresh";
+ 		throw new AIError.OAuthError(`Snowflake token ${operation} failed (${response.status})`, {
+@@ -39,14 +39,15 @@
+ 	try {
+ 		body = await response.json();
+ 	} catch (error) {
+-		signal?.throwIfAborted();
++		if (kind === "token-exchange") signal?.throwIfAborted();
+ 		if (error instanceof Error && error.name === "AbortError") throw error;
+ 		throw new AIError.OAuthError("Snowflake returned an invalid token response", {
+ 			kind: "validation",
+ 			provider: "snowflake",
+ 		});
+ 	}
+-	signal?.throwIfAborted();
++	// Once a refresh response is known, let the durable owner preserve it.
++	if (kind === "token-exchange") signal?.throwIfAborted();
+ 	if (
+ 		!isRecord(body) ||
+ 		typeof body.access_token !== "string" ||
+--- a/pi-catalog/dist/types/model-manager.d.ts
++++ b/pi-catalog/dist/types/model-manager.d.ts
+@@ -84,8 +84,17 @@
+      * command-backed credentials that must wait until an actual request.
+      */
+     restoreCachedHeaders?: (model: Readonly<Model>) => Pick<Model, "headers" | "resolveHeaders"> | undefined;
+-    /** Optional dynamic endpoint fetcher. */
+-    fetchDynamicModels?: () => Promise<readonly ModelSpec<TApi>[] | null>;
++    /**
++     * Optional dynamic endpoint fetcher. Receives the previous resolved catalog
++     * (restored cache rows, `staticModels` excluded) so account-scoped discovery
++     * can retain an account's last discovered eligibility after a rejected fetch.
++     * Declared as a method, not a property: method parameters are compared
++     * bivariantly, so a `ModelManagerOptions<"<provider-api>">` factory stays
++     * assignable to `ModelManagerOptions<Api>`. As a property signature the
++     * parameter is contravariant, which demands `Model<Api>` be assignable to
++     * every narrower `Model<TApi>` and breaks those factories.
++     */
++    fetchDynamicModels?(previous?: readonly Model<TApi>[]): Promise<readonly ModelSpec<TApi>[] | null>;
+     /** Optional stencil.so fallback hook. */
+     modelsDev?: ModelsDevFallback<TApi, TModelsDevPayload>;
+     /** Clock override for deterministic tests. */
+--- a/pi-catalog/src/model-manager.ts
++++ b/pi-catalog/src/model-manager.ts
+@@ -99,8 +99,17 @@
+ 	 * command-backed credentials that must wait until an actual request.
+ 	 */
+ 	restoreCachedHeaders?: (model: Readonly<Model>) => Pick<Model, "headers" | "resolveHeaders"> | undefined;
+-	/** Optional dynamic endpoint fetcher. */
+-	fetchDynamicModels?: () => Promise<readonly ModelSpec<TApi>[] | null>;
++	/**
++	 * Optional dynamic endpoint fetcher. Receives the previous resolved catalog
++	 * (restored cache rows, `staticModels` excluded) so account-scoped discovery
++	 * can retain an account's last discovered eligibility after a rejected fetch.
++	 * Declared as a method, not a property: method parameters are compared
++	 * bivariantly, so a `ModelManagerOptions<"<provider-api>">` factory stays
++	 * assignable to `ModelManagerOptions<Api>`. As a property signature the
++	 * parameter is contravariant, which demands `Model<Api>` be assignable to
++	 * every narrower `Model<TApi>` and breaks those factories.
++	 */
++	fetchDynamicModels?(previous?: readonly Model<TApi>[]): Promise<readonly ModelSpec<TApi>[] | null>;
+ 	/** Optional stencil.so fallback hook. */
+ 	modelsDev?: ModelsDevFallback<TApi, TModelsDevPayload>;
+ 	/** Clock override for deterministic tests. */
+@@ -340,7 +349,7 @@
+ 	}
+ 
+ 	const [fetchedModelsDevModels, dynamicFetch] = shouldFetchFromNetwork
+-		? await Promise.all([fetchModelsDev(options), dynamicFetcher ? fetchDynamicModels(dynamicFetcher) : undefined])
++		? await Promise.all([fetchModelsDev(options), dynamicFetcher ? fetchDynamicModels(dynamicFetcher, usableCachedModels) : undefined])
+ 		: [null, undefined];
+ 	const fetchedDynamicModels = dynamicFetch?.models ?? null;
+ 	const modelsDevFetchSucceeded = fetchedModelsDevModels !== null;
+@@ -532,10 +541,11 @@
+ 
+ /** The endpoint's catalog (`models: null` when it answered none), and why it threw, if it did. */
+ async function fetchDynamicModels<TApi extends Api>(
+-	fetcher: () => Promise<readonly ModelSpec<TApi>[] | null>,
++	fetcher: (previous?: readonly Model<TApi>[]) => Promise<readonly ModelSpec<TApi>[] | null>,
++	previous: readonly Model<TApi>[],
+ ): Promise<{ models: DiscoveredModelSet<TApi> | null; error?: string }> {
+ 	try {
+-		const models = await fetcher();
++		const models = await fetcher(previous);
+ 		return { models: models === null ? null : buildDiscoveredModelSpecs<TApi>(models) };
+ 	} catch (error) {
+ 		return { models: null, error: error instanceof Error ? error.message : String(error) };
+--- a/pi-catalog/src/provider-models/google.ts
++++ b/pi-catalog/src/provider-models/google.ts
+@@ -7,8 +7,9 @@
+ import { fetchGeminiModels } from "../discovery/gemini";
+ import { fetchGeminiCliQuotaModels } from "../discovery/gemini-cli";
+ import type { ModelManagerOptions } from "../model-manager";
+-import type { FetchImpl, ModelSpec } from "../types";
++import type { FetchImpl, Model, ModelSpec } from "../types";
+ import { unionAccountCatalogs } from "./account-access";
++import { toModelSpec } from "./bundled-references";
+ 
+ export interface GoogleModelManagerConfig {
+ 	apiKey?: string;
+@@ -105,7 +106,7 @@
+ 		dynamicModelsAuthoritative: providerEntry("google-antigravity")?.dynamicModelsAuthoritative === true,
+ 		...(resolveAccounts
+ 			? {
+-					fetchDynamicModels: async () => {
++					fetchDynamicModels: async previous => {
+ 						const accounts = await resolveAccounts();
+ 						if (!accounts || accounts.length === 0) return null;
+ 						const fetcher = toDiscoveryFetch(config?.fetch);
+@@ -125,10 +126,26 @@
+ 							// A transient failure would leave the union partial; keep the previous catalog.
+ 							if (!result) return null;
+ 							if (result.rejectedStatus !== undefined) {
+-								logger.warn("Antigravity model discovery skipped an account whose credential was rejected", {
++								// A 403 keeps the rows that account last discovered, re-keyed to
++								// that account alone; a 401, a keyless account, and every account
++								// without own-keyed history keep the previous skip.
++								const retained =
++									result.rejectedStatus === 403 && accountKey !== undefined
++										? retainedAccountCatalog(previous ?? [], accountKey)
++										: [];
++								if (retained.length === 0) {
++									logger.warn("Antigravity model discovery skipped an account whose credential was rejected", {
++										accountKey,
++										status: result.rejectedStatus,
++									});
++									continue;
++								}
++								logger.warn("Antigravity model discovery retained the last discovered models of a rejected account", {
+ 									accountKey,
+ 									status: result.rejectedStatus,
++									models: retained.length,
+ 								});
++								catalogs.push({ accountKey, models: retained });
+ 								continue;
+ 							}
+ 							// Caches written under older rules fail the compiled-rules hash in
+@@ -141,19 +158,25 @@
+ 						if (catalogs.length === 0) return null;
+ 						const tagAccess = catalogs.every(catalog => catalog.accountKey !== undefined);
+ 						return unionAccountCatalogs(
+-							catalogs.map(({ accountKey, models }) =>
+-								tagAccess && accountKey !== undefined
+-									? models.map(model => ({
+-											...model,
+-											accountAccess: {
+-												[accountKey]:
+-													model.antigravityWireProfiles === undefined
+-														? {}
+-														: { antigravityWireProfiles: model.antigravityWireProfiles },
+-											},
+-										}))
+-									: models,
+-							),
++							catalogs.map(({ accountKey, models }) => {
++								if (tagAccess && accountKey !== undefined) {
++									return models.map(model => ({
++										...model,
++										accountAccess: {
++											[accountKey]:
++												model.antigravityWireProfiles === undefined
++													? {}
++													: { antigravityWireProfiles: model.antigravityWireProfiles },
++										},
++									}));
++								}
++								// All-or-none tagging is off, so no model may advertise per-account
++								// access — including a rejected account's retained rows, which would
++								// otherwise pin a shared model to the rejected credential.
++								return models.map(model =>
++									model.accountAccess === undefined ? model : { ...model, accountAccess: undefined },
++								);
++							}),
+ 						);
+ 					},
+ 				}
+@@ -161,6 +184,22 @@
+ 	};
+ }
+ 
++/** The previous catalog's rows keyed to one rejected account, re-keyed to that account alone. */
++function retainedAccountCatalog(
++	previous: readonly Model<"google-gemini-cli">[],
++	accountKey: string,
++): ModelSpec<"google-gemini-cli">[] {
++	const retained: ModelSpec<"google-gemini-cli">[] = [];
++	for (const model of previous) {
++		const access = model.accountAccess;
++		if (!access || !Object.hasOwn(access, accountKey)) continue;
++		const own = access[accountKey];
++		if (own === undefined) continue;
++		retained.push({ ...toModelSpec(model), accountAccess: { [accountKey]: own } });
++	}
++	return retained;
++}
++
+ export function googleGeminiCliModelManagerOptions(
+ 	config?: GoogleGeminiCliModelManagerConfig,
+ ): ModelManagerOptions<"google-gemini-cli"> {
+--- a/pi-catalog/src/provider-models/special.ts
++++ b/pi-catalog/src/provider-models/special.ts
+@@ -67,7 +67,7 @@
+ 		keepStaticNames: providerEntry("openai-codex")?.keepBundledNames === true,
+ 		...(resolveAccounts
+ 			? {
+-					fetchDynamicModels: async () => {
++					fetchDynamicModels: async previous => {
+ 						const accounts = await resolveAccounts();
+ 						if (!accounts || accounts.length === 0) return null;
+ 						const results = await Promise.all(
+@@ -82,7 +82,7 @@
+ 								}),
+ 							})),
+ 						);
+-						return unionCodexModels(results);
++						return unionCodexModels(results, previous ?? []);
+ 					},
+ 				}
+ 			: undefined),
+@@ -91,25 +91,42 @@
+ 
+ /**
+  * Merge complete per-account Codex catalogs into one authoritative list via
+- * {@link unionAccountCatalogs}.
++ * {@link unionAccountCatalogs}, returning `null` when any account's fetch failed
++ * transiently so a partial list cannot replace the previous catalog.
+  *
+  * Returns `null` when any account's fetch failed transiently, so a partial list
+  * cannot replace the previous or bundled authoritative catalog. A definitive
+  * account denial (401/403 auth or 402 payment) contributes nothing and is skipped
+  * instead: it would otherwise veto every sibling account's models until the
+- * account recovers. If no account produced a catalog, discovery aborts.
++ * account recovers. A `403` rejection keeps the rows that account last
++ * discovered, re-keyed to that account alone; a `401` and every account without
++ * own-keyed history keep the skip. A successful `200` replaces the account's
++ * partition wholesale, including an empty roster. If no account produced a
++ * catalog, discovery aborts.
+  */
+ function unionCodexModels(
+ 	results: readonly { accountId: string | undefined; result: CodexModelDiscoveryResult | null }[],
++	previous: readonly Model<"openai-codex-responses">[],
+ ): ModelSpec<"openai-codex-responses">[] | null {
+ 	const catalogs: ModelSpec<"openai-codex-responses">[][] = [];
+ 	for (const { accountId, result } of results) {
+ 		if (!result) return null;
+ 		if (result.rejectedStatus !== undefined) {
+-			logger.warn("Codex model discovery skipped an account denied by the backend", {
++			const retained =
++				result.rejectedStatus === 403 && accountId !== undefined ? retainedAccountCatalog(previous, accountId) : [];
++			if (retained.length === 0) {
++				logger.warn("Codex model discovery skipped an account denied by the backend", {
++					accountId,
++					status: result.rejectedStatus,
++				});
++				continue;
++			}
++			logger.warn("Codex model discovery retained the last discovered models of a rejected account", {
+ 				accountId,
+ 				status: result.rejectedStatus,
++				models: retained.length,
+ 			});
++			catalogs.push(retained);
+ 			continue;
+ 		}
+ 		catalogs.push(result.models);
+@@ -117,6 +134,22 @@
+ 	return catalogs.length > 0 ? unionAccountCatalogs(catalogs) : null;
+ }
+ 
++/** The previous catalog's rows keyed to one rejected account, re-keyed to that account alone. */
++function retainedAccountCatalog(
++	previous: readonly Model<"openai-codex-responses">[],
++	accountId: string,
++): ModelSpec<"openai-codex-responses">[] {
++	const retained: ModelSpec<"openai-codex-responses">[] = [];
++	for (const model of previous) {
++		const access = model.accountAccess;
++		if (!access || !Object.hasOwn(access, accountId)) continue;
++		const own = access[accountId];
++		if (own === undefined) continue;
++		retained.push({ ...toModelSpec(model), accountAccess: { [accountId]: own } });
++	}
++	return retained;
++}
++
+ // ---------------------------------------------------------------------------
+ // Cursor
+ // ---------------------------------------------------------------------------
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -9804,12 +9804,36 @@
+ 			// Validate API key; a provider without one walks the retry fallback chain first.
+ 			const apiKey = await logger.time("prompt:apiKey", () => this.#modelRegistry.getApiKey(model, this.sessionId));
+ 			if (!isCurrent()) return false;
+-			if (!apiKey && !(await this.#recovery.applyMissingCredentialFallback(setupAbort.signal))) {
+-				if (setupAbort.signal.aborted) return false;
+-				throw new PromptPreflightError(
+-					`No API key found for ${model.provider}.\n\n` +
+-						`Use /login, set an API key environment variable, or create ${getAgentDbPath()}`,
+-				);
++			if (!apiKey) {
++				const switched = await this.#recovery.applyMissingCredentialFallback(setupAbort.signal);
++				if (!switched) {
++					if (setupAbort.signal.aborted) return false;
++					// A pending refresh exchange is a durable, user-fixable state, not a
++					// missing credential: read it from the store so the message stays
++					// accurate even while the transient-failure cooldown blocks retries.
++					const unresolved = await this.#modelRegistry.authStorage.oauth.inspectUnresolvedRefresh(
++						model.provider,
++					);
++					if (unresolved.eligible) {
++						throw new PromptPreflightError(
++							`OAuth credential ${unresolved.credentialId ?? ""} for ${model.provider} has an unresolved token refresh: a refresh exchange is pending and its outcome is unknown.\n\n` +
++								`Run /auth-unlock ${model.provider} to release that exchange and retry.`,
++						);
++					}
++					throw new PromptPreflightError(
++						`No API key found for ${model.provider}.\n\n` +
++							`Use /login, set an API key environment variable, or create ${getAgentDbPath()}`,
++					);
++				}
++				// A switched model hides the reason: say so, without blocking the turn.
++				const unresolved = await this.#modelRegistry.authStorage.oauth.inspectUnresolvedRefresh(model.provider);
++				if (unresolved.eligible) {
++					this.emitNotice(
++						"warning",
++						`OAuth credential ${unresolved.credentialId ?? ""} for ${model.provider} has an unresolved token refresh; the turn continues on a fallback model. Run /auth-unlock ${model.provider} to release it.`,
++						"auth-unlock",
++					);
++				}
+ 			}
+ 
+ 			// Recover a previously failed/incomplete assistant turn before sending.
+--- a/pi-tui/src/overlays/mcp-add-wizard.ts
++++ b/pi-tui/src/overlays/mcp-add-wizard.ts
+@@ -346,10 +346,11 @@
+ 	/** Why the last OAuth attempt ended: the error (whole for native, fitted for ANSI) and a tip. */
+ 	#oauthFailure: { cancelled: boolean; message: string; ansiMessage: string; tip?: string } | null = null;
+ 	/**
+-	 * Bumped when a connection test starts and whenever the user steps back, so
+-	 * a test that settles after the user left its step doesn't move the wizard.
++	 * Bumped when a connection test starts, the user steps back, or the wizard
++	 * closes, so a late test result cannot move it on or start authentication.
+ 	 */
+ 	#attempt = 0;
++	#closed = false;
+ 	#nativeStep: NativeWizardStep = { phase: PHASE_NAME, title: "", body: [], actions: {} };
+ 	/** Memoized native description; dropped whenever a step mounts or its body changes. */
+ 	#native: NativeNode | undefined;
+@@ -682,6 +683,7 @@
+ 	 * arrows and pressing Enter; the footer's buttons run what their keys run.
+ 	 */
+ 	handleNativeEvent(event: NativeUiEvent): void {
++		if (this.#closed) return;
+ 		if (event.type === "action") {
+ 			this.#runAction(event.act);
+ 			return;
+@@ -700,13 +702,12 @@
+ 	#runAction(act: string): void {
+ 		switch (act) {
+ 			case "cancel":
+-				this.#oauthAbort?.abort("MCP OAuth flow cancelled by user");
+-				this.#onCancelCallback();
++				this.#cancelWizard();
+ 				return;
+ 			case "back":
+ 				if (this.#oauthAbort) this.#oauthAbort.abort("MCP OAuth flow cancelled by user");
+ 				else if (this.#inputField) this.#cancelInputStep();
+-				else if (this.#currentStep === "name") this.#onCancelCallback();
++				else if (this.#currentStep === "name") this.#cancelWizard();
+ 				else this.#goBack();
+ 				break;
+ 			case "next":
+@@ -719,9 +720,17 @@
+ 		this.#requestRender();
+ 	}
+ 
++	#cancelWizard(): void {
++		if (this.#closed) return;
++		this.#closed = true;
++		this.#attempt++;
++		this.#oauthAbort?.abort("MCP OAuth flow cancelled by user");
++		this.#onCancelCallback();
++	}
++
+ 	#cancelInputStep(): void {
+ 		if (this.#currentStep === "name") {
+-			this.#onCancelCallback();
++			this.#cancelWizard();
+ 			return;
+ 		}
+ 		this.#goBack();
+@@ -989,6 +998,7 @@
+ 	}
+ 
+ 	handleInput(keyData: string): void {
++		if (this.#closed) return;
+ 		// While an OAuth callback is being awaited, Esc/Ctrl+C aborts the flow
+ 		// rather than stepping back through the form: the wizard advertises
+ 		// "(Press Esc to cancel)" during the wait, and stepping back would
+@@ -1001,7 +1011,7 @@
+ 		// Handle Ctrl+C to cancel wizard immediately
+ 		if (keyData === "\x03") {
+ 			// Ctrl+C pressed - cancel wizard
+-			this.#onCancelCallback();
++			this.#cancelWizard();
+ 			return;
+ 		}
+ 
+@@ -1019,7 +1029,7 @@
+ 		if (matchesAppInterrupt(keyData)) {
+ 			if (this.#currentStep === "name") {
+ 				// Cancel wizard
+-				this.#onCancelCallback();
++				this.#cancelWizard();
+ 				return;
+ 			}
+ 			// Go back to previous step
+@@ -1438,6 +1448,7 @@
+ 	 * Test connection and automatically detect if auth is needed.
+ 	 */
+ 	async #testConnectionAndDetectAuth(): Promise<void> {
++		if (this.#closed) return;
+ 		const testConfig = this.#buildServerConfig();
+ 
+ 		if (!this.#onTestConnectionCallback) {
+@@ -1507,6 +1518,7 @@
+ 						// Ignore discovery failures and fallback to manual auth.
+ 					}
+ 				}
++				if (attempt !== this.#attempt) return;
+ 				if (oauth && !oauth.scopes && authResult.resourceMetadataUrl) {
+ 					// JSON-error-body path skips `discoverOAuthEndpoints` when the body
+ 					// already carries endpoints, so scopes advertised only in the
+@@ -1636,6 +1648,7 @@
+ 	}
+ 
+ 	async #launchOAuthFlow(): Promise<void> {
++		if (this.#closed) return;
+ 		if (!this.#onOAuthCallback) {
+ 			this.#asyncStep({
+ 				phase: PHASE_AUTH,
+@@ -1708,6 +1721,7 @@
+ 					abortSignal: this.#oauthAbort.signal,
+ 				},
+ 			);
++			if (this.#closed) return;
+ 
+ 			// Store credential ID + any dynamically-registered client id. DCR client
+ 			// secrets stay embedded in the stored credential, never in mcp.json.
+@@ -1775,6 +1789,7 @@
+ 			}
+ 
+ 			clearInterval(spinner);
++			if (this.#closed) return;
+ 			if (healthPassed) {
+ 				healthText.setText(theme.fg("success", "✓ Health check passed"));
+ 				this.#setNativeBody([checks(statusRow("ok", "The server answers", "health"))]);
+@@ -1792,6 +1807,7 @@
+ 			// Move to scope selection after short delay
+ 			setTimeout(
+ 				() => {
++					if (this.#closed) return;
+ 					this.#currentStep = "scope";
+ 					this.#selectedIndex = 0;
+ 					this.#renderStep();
+@@ -1800,6 +1816,7 @@
+ 				healthPassed ? 1000 : 2000,
+ 			);
+ 		} catch (error) {
++			if (this.#closed) return;
+ 			// User cancellation has its own neutral heading + tip; everything else
+ 			// keeps the "OAuth authentication failed" framing so the existing tips
+ 			// stay meaningful. Name-matching avoids importing controller types.
+@@ -1828,7 +1845,7 @@
+ 	}
+ 
+ 	#complete(): void {
+-		if (!this.#state.scope) return;
++		if (this.#closed || !this.#state.scope) return;
+ 
+ 		// Build the config
+ 		const config: MCPAddWizardConfig = this.#buildConfig();
+--- a/pi-ai/dist/types/error/oauth.d.ts
++++ b/pi-ai/dist/types/error/oauth.d.ts
+@@ -30,6 +30,12 @@
+     kind?: OAuthErrorKind;
+     provider?: string;
+     status?: number;
++    /**
++     * The `error` code of a PARSED OAuth token-response body. Set only where the
++     * endpoint's answer was actually read, so callers can act on a structured
++     * rejection instead of matching message text.
++     */
++    oauthError?: string;
+     cause?: unknown;
+ }
+ /**
+@@ -42,5 +48,6 @@
+     readonly kind: OAuthErrorKind;
+     readonly provider: string | undefined;
+     readonly status: number | undefined;
++    readonly oauthError: string | undefined;
+     constructor(message: string, options?: OAuthErrorOptions);
+ }
+--- a/pi-ai/src/error/oauth.ts
++++ b/pi-ai/src/error/oauth.ts
+@@ -33,6 +33,12 @@
+ 	kind?: OAuthErrorKind;
+ 	provider?: string;
+ 	status?: number;
++	/**
++	 * The `error` code of a PARSED OAuth token-response body. Set only where the
++	 * endpoint's answer was actually read, so callers can act on a structured
++	 * rejection instead of matching message text.
++	 */
++	oauthError?: string;
+ 	cause?: unknown;
+ }
+ 
+@@ -46,6 +52,7 @@
+ 	readonly kind: OAuthErrorKind;
+ 	readonly provider: string | undefined;
+ 	readonly status: number | undefined;
++	readonly oauthError: string | undefined;
+ 
+ 	constructor(message: string, options: OAuthErrorOptions = {}) {
+ 		super(message, options.cause === undefined ? undefined : { cause: options.cause });
+@@ -53,6 +60,7 @@
+ 		this.kind = options.kind ?? "http";
+ 		this.provider = options.provider;
+ 		this.status = options.status;
++		this.oauthError = options.oauthError;
+ 		attach(
+ 			this,
+ 			this.kind === "timeout" || this.kind === "polling" ? create(Flag.Transient) : create(Flag.AuthFailed),
+--- a/pi-ai/src/registry/engine/common.ts
++++ b/pi-ai/src/registry/engine/common.ts
+@@ -254,9 +254,22 @@
+ 		}
+ 	}
+ 	if (!response.ok && errorKind !== "device-auth") {
++		// The endpoint answered and its body was parsed here, so the rejection is
++		// structured: keep the RFC 6749 `error` code for callers that must tell a
++		// refused grant apart from a transport failure or an unreadable body.
++		const oauthError =
++			typeof body === "object" && body !== null && "error" in body &&
++			typeof (body as { error?: unknown }).error === "string"
++				? (body as { error: string }).error
++				: undefined;
+ 		throw new AIError.OAuthError(
+ 			`${context.provider} ${errorKind === "token-refresh" ? "token refresh" : "token exchange"} failed: ${response.status} ${text.slice(0, 500)}`,
+-			{ kind: errorKind, provider: context.provider, status: response.status },
++			{
++				kind: errorKind,
++				provider: context.provider,
++				status: response.status,
++				...(oauthError === undefined ? {} : { oauthError }),
++			},
+ 		);
+ 	}
+ 	return { body: body ?? text, response };
+--- a/pi-coding-agent/src/thread/services/auth-protocol.ts
++++ b/pi-coding-agent/src/thread/services/auth-protocol.ts
+@@ -54,6 +54,9 @@
+ 	OAuthLoginIdentity,
+ 	OAuthProviderId,
+ 	OAuthRefreshByIdOptions,
++	OAuthRefreshUnlockInspection,
++	OAuthRefreshUnlockOptions,
++	OAuthRefreshUnlockResult,
+ 	ObservedUsageInput,
+ 	Provider,
+ 	RedeemResetCreditOptions,
+@@ -213,6 +216,11 @@
+ 		[id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions],
+ 		AuthCredentialSnapshotEntry
+ 	>;
++	"oauth.inspectUnresolvedRefresh": RpcMethod<[provider: string], OAuthRefreshUnlockInspection>;
++	"oauth.unlockAndRefreshStored": RpcMethod<
++		[provider: string, options: OAuthRefreshUnlockOptions],
++		OAuthRefreshUnlockResult
++	>;
+ 
+ 	"sessions.pin": RpcMethod<
+ 		[provider: string, sessionId: string, credentialId: number, options?: { restoredAtMs?: number }],
+--- a/pi-coding-agent/src/thread/services/auth.ts
++++ b/pi-coding-agent/src/thread/services/auth.ts
+@@ -241,6 +241,8 @@
+ 		"oauth.identity": (storage, provider, sessionId) => storage.oauth.identity(provider, sessionId),
+ 		"oauth.policy": (storage, provider, identity) => storage.oauth.policy(provider, identity),
+ 		"oauth.refresh": (storage, id, signal, options) => storage.oauth.refresh(id, signal, options),
++		"oauth.inspectUnresolvedRefresh": (storage, provider) => storage.oauth.inspectUnresolvedRefresh(provider),
++		"oauth.unlockAndRefreshStored": (storage, provider, options) => storage.oauth.unlockAndRefreshStored(provider, options),
+ 
+ 		"sessions.pin": (storage, provider, sessionId, credentialId, options) =>
+ 			storage.sessions.pin(provider, sessionId, credentialId, options),
+--- a/pi-coding-agent/src/thread/services/auth-remote.ts
++++ b/pi-coding-agent/src/thread/services/auth-remote.ts
+@@ -54,6 +54,9 @@
+ 	OAuthLoginIdentity,
+ 	OAuthProviderId,
+ 	OAuthRefreshByIdOptions,
++	OAuthRefreshUnlockInspection,
++	OAuthRefreshUnlockOptions,
++	OAuthRefreshUnlockResult,
+ 	ObservedUsageInput,
+ 	Provider,
+ 	RedeemResetCreditOptions,
+@@ -393,6 +396,15 @@
+ 	refresh(id: number, signal?: AbortSignal, options?: OAuthRefreshByIdOptions): Promise<AuthCredentialSnapshotEntry> {
+ 		return this.#remote.call("oauth.refresh", id, signal, options);
+ 	}
++	inspectUnresolvedRefresh(provider: string): Promise<OAuthRefreshUnlockInspection> {
++		return this.#remote.call("oauth.inspectUnresolvedRefresh", provider);
++	}
++	unlockAndRefreshStored(
++		provider: string,
++		options: OAuthRefreshUnlockOptions,
++	): Promise<OAuthRefreshUnlockResult> {
++		return this.#remote.call("oauth.unlockAndRefreshStored", provider, options);
++	}
+ 	/**
+ 	 * Refused: the refresher calls `credentialFromRow`, `canRefresh`, and the other
+ 	 * hooks synchronously on the thread that owns the store, and a worker's
+--- a/pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts
++++ b/pi-coding-agent/dist/types/thread/services/auth-protocol.d.ts
+@@ -12,6 +12,7 @@
+  * numeric ids held in a main-side table.
+  */
+ import type { AnthropicSlowModeFailure, AnthropicSlowModeRetry, AnthropicSlowModeSignal, Api, ApiKeyResolver, AssistantMessage, AssistantMessageEvent, AuthAccountPolicy, AuthAccountPolicyConfig, AuthApiKeyOptions, AuthCredential, AuthCredentialEntry, AuthCredentialSnapshot, AuthCredentialSnapshotEntry, AuthPeekOptions, AuthSource, AuthSourceOptions, AuthStorage, AuthStorageData, CheckCredentialsOptions, Context, ClientUsageReport, ClientUsageSummary, CredentialDisabledEvent, CredentialHealthResult, CredentialRotation, DisabledCredentialSummary, InvalidateCredentialMatchingOptions, ListResetCreditsOptions, MarkUsageLimitOptions, Model, ModelUsageHealth, ModelUsageHealthOptions, OAuthAccess, OAuthAccessResolution, OAuthAccountIdentity, OAuthAccountSummary, OAuthCredential, OAuthLoginController, OAuthLoginIdentity, OAuthProviderId, OAuthRefreshByIdOptions, ObservedUsageInput, Provider, RedeemResetCreditOptions, ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResolvedApiKey, RotateCredentialOptions, StoredAuthCredential, StoredCredentialBlock, UsageHistoryEntry, UsageHistoryQuery, UsageLimitMarkResult, UsageProvider, UsageReport, SimpleStreamOptions } from "@oh-my-pi/pi-ai";
++import type { OAuthRefreshUnlockInspection, OAuthRefreshUnlockOptions, OAuthRefreshUnlockResult } from "@oh-my-pi/pi-ai";
+ import type { ModelRefreshStrategy } from "@oh-my-pi/pi-catalog/model-manager";
+ import type { ModelRegistryMirrorBatch, ModelRegistryMirrorChange, ModelRegistryMirrorInputs, ModelRegistryRefreshOptions, ProviderConfigInput } from "../../config/model-registry.js";
+ import type { AnthropicSlowModeAvailability, AnthropicSlowModeEndReason, AnthropicSlowModeHookOptions, AnthropicSlowModeLane } from "../../session/anthropic-slow-mode.js";
+@@ -141,6 +142,8 @@
+         signal?: AbortSignal,
+         options?: OAuthRefreshByIdOptions
+     ], AuthCredentialSnapshotEntry>;
++    "oauth.inspectUnresolvedRefresh": RpcMethod<[provider: string], OAuthRefreshUnlockInspection>;
++    "oauth.unlockAndRefreshStored": RpcMethod<[provider: string, options: OAuthRefreshUnlockOptions], OAuthRefreshUnlockResult>;
+     "sessions.pin": RpcMethod<[
+         provider: string,
+         sessionId: string,

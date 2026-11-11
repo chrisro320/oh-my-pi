@@ -25,7 +25,7 @@ gate = here / "verify-codex-compaction-chain-fail-closed.ts"
 # Every supported plan carries the non-generating chain-recovery hook and the
 # two-argument acceptance hook (commit + rollback); a tree without either fails
 # closed in the gate this script mutates.
-plan = resolve_plan("verify-codex-compaction-chain-fail-closed-faults", roots=[roots["pi-ai"]])
+resolve_plan("verify-codex-compaction-chain-fail-closed-faults", roots=[roots["pi-ai"]])
 acceptance_declaration = "    onAccept?: (\n        commit: (recorded: OpenAICodexCompactionResponseMetadata) => void,\n        rollback: () => void,\n    ) => void;\n"
 
 def run(tree, gate_path=None):
@@ -53,40 +53,39 @@ faults = [
     ("accepted metadata dropped", ai, "\t\t\tapplyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
     ("raw error swallowed", core, 'type === "response.incomplete" || type === "error"', 'type === "response.incomplete"', "only a real provider code may be preserved"),
 ]
-if plan.since("18.18.0"):
-    # The 18.18.0 transport wraps ResponsesWebSocketConnection. Each mutation
-    # reintroduces one way the lane can silently spend money or cut off another
-    # request; the anchors carry their exact tabs and must exist exactly once.
-    faults.extend([
-        ("busy socket torn down instead of refused", ai,
-         "\t\t\t\tif (error instanceof CodexWebSocketBusyError) {\n",
-         "\t\t\t\tif (false as boolean) {\n",
-         "Missing expected rejection"),
-        ("hook may drop the chain", ai,
-         "(websocketRequest.previous_response_id === undefined ||\n",
-         "(false ||\n",
-         "Missing expected rejection"),
-        ("replaced socket may carry the chain", ai,
-         "\t\t\t\twebsocketState.connection !== websocketConnection ||\n\t\t\t\t!websocketConnection.isOpen())\n",
-         "\t\t\t\tfalse)\n",
-         "Missing expected rejection"),
-        ("peer close not reported", channel,
-         "\t\tthis.#options.onRetired?.({ reason, peer });\n",
-         "",
-         "timed out waiting for the peer close"),
-        ("local close reported as peer", channel,
-         "\t\tthis.#options.onRetired?.({ reason, peer });\n",
-         "\t\tthis.#options.onRetired?.({ reason, peer: peer ?? `peer (code 1000: ${reason})` });\n",
-         "local close: our own reason"),
-        ("sticky websocket disable", ai,
-         "\tif (!state) return false;\n\t// Env val > Preference",
-         "\tif (!state || state.fallbackCount > 0) return false;\n\t// Env val > Preference",
-         "websocket transport unavailable"),
-        ("sticky websocket disable field returns", ai,
-         "export class CodexCompactionChainLostError extends Error {",
-         "// disableWebsocket\nexport class CodexCompactionChainLostError extends Error {",
-         "a sticky websocket disable would silently re-enable SSE fallback"),
-    ])
+# The chain transport wraps ResponsesWebSocketConnection. Each mutation
+# reintroduces one way the lane can silently spend money or cut off another
+# request; the anchors carry their exact tabs and must exist exactly once.
+faults.extend([
+    ("busy socket torn down instead of refused", ai,
+     "\t\t\t\tif (error instanceof CodexWebSocketBusyError) {\n",
+     "\t\t\t\tif (false as boolean) {\n",
+     "Missing expected rejection"),
+    ("hook may drop the chain", ai,
+     "(websocketRequest.previous_response_id === undefined ||\n",
+     "(false ||\n",
+     "Missing expected rejection"),
+    ("replaced socket may carry the chain", ai,
+     "\t\t\t\twebsocketState.connection !== websocketConnection ||\n\t\t\t\t!websocketConnection.isOpen())\n",
+     "\t\t\t\tfalse)\n",
+     "Missing expected rejection"),
+    ("peer close not reported", channel,
+     "\t\tthis.#options.onRetired?.({ reason, peer });\n",
+     "",
+     "timed out waiting for the peer close"),
+    ("local close reported as peer", channel,
+     "\t\tthis.#options.onRetired?.({ reason, peer });\n",
+     "\t\tthis.#options.onRetired?.({ reason, peer: peer ?? `peer (code 1000: ${reason})` });\n",
+     "local close: our own reason"),
+    ("sticky websocket disable", ai,
+     "\tif (!state) return false;\n\t// Env val > Preference",
+     "\tif (!state || state.fallbackCount > 0) return false;\n\t// Env val > Preference",
+     "websocket transport unavailable"),
+    ("sticky websocket disable field returns", ai,
+     "export class CodexCompactionChainLostError extends Error {",
+     "// disableWebsocket\nexport class CodexCompactionChainLostError extends Error {",
+     "a sticky websocket disable would silently re-enable SSE fallback"),
+])
 
 with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
     root = Path(temporary)

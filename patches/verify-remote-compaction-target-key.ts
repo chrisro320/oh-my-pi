@@ -60,6 +60,19 @@ if (process.env.OMP_REMOTE_COMPACTION_KEY_CHILD !== "1") {
 	process.exit(0);
 }
 
+// Run the public-session legs in fresh processes before this gate replaces
+// compact() with its callsite recorder. The helper follows these exact roots.
+const policyProbe = Bun.spawnSync([process.execPath, join(import.meta.dir, "compaction-session-policy-probe.ts")], {
+	env: {
+		...process.env,
+		OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
+		OMP_PATCH_VERIFY_CORE_ROOT: CORE_ROOT,
+	},
+});
+process.stdout.write(policyProbe.stdout);
+process.stderr.write(policyProbe.stderr);
+assert.equal(policyProbe.exitCode, 0, "public compaction reader/payload policy gate failed");
+
 let fetchAttempts = 0;
 globalThis.fetch = (() => {
 	fetchAttempts++;

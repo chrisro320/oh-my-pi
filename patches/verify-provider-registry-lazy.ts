@@ -1,6 +1,6 @@
 /**
  * verify-provider-registry-lazy.ts — patched providers must be reachable through
- * the lazy registration table (U9, 18.16.0 only)
+ * the lazy registration table (U9).
  *
  * `pi-ai` no longer imports every provider eagerly. Each API is served by a
  * `createLazyProviderStream(() => import("<literal>"), mod => mod.streamX)`
@@ -46,10 +46,9 @@ import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-resolvePlan({ gate: "verify-provider-registry-lazy", roots: [AI_ROOT] });
-// The lazy table, the patched provider set and every marker below are the same
-// on every registered release; an unknown tree fails closed instead of
-// silently asserting another release's provider wiring.
+const plan = resolvePlan({ gate: "verify-provider-registry-lazy", roots: [AI_ROOT] });
+// Lazy dispatch is covered on every registered release. Antigravity-only
+// patch markers apply only while upstream still permits that provider.
 
 const PROVIDERS_DIR = join(AI_ROOT, "src", "providers");
 const TABLE_FILE = join(PROVIDERS_DIR, "register-builtins.ts");
@@ -118,7 +117,7 @@ const TARGETS: Target[] = [
 		file: "google-gemini-cli.ts",
 		stream: "streamGoogleGeminiCli",
 		api: "google-gemini-cli",
-		model: { ...baseModel, id: "gemini-3.7-flash", api: "google-gemini-cli", provider: "google-antigravity", baseUrl: "http://127.0.0.1:9" },
+		model: { ...baseModel, id: "gemini-3.7-flash", api: "google-gemini-cli", provider: "google-gemini-cli", baseUrl: "http://127.0.0.1:9" },
 		options: { apiKey: "registry-probe" },
 		expect: /Cloud Code Assist credentials/,
 	},
@@ -298,7 +297,7 @@ record(
 // Gemini-cli: the patched module derives the Antigravity session identity from
 // `options.sessionId`, not from the first user text, so distinct transcripts
 // pinned to one session keep one signed session id.
-{
+if (!plan.since("18.18.4")) {
 	const gemini = providerExports(join(PROVIDERS_DIR, "google-gemini-cli.ts"));
 	type BuildRequest = (
 		model: unknown,
@@ -332,6 +331,7 @@ record(
 			: "the loaded module does not export buildRequest",
 	);
 }
+else console.log("  SKIP patch-google-gemini-cli.ts: Antigravity is paused upstream; Gemini CLI lazy dispatch remains covered");
 
 // --- 4. The dispatcher rejects an unroutable API instead of falling through ---
 {
@@ -378,6 +378,17 @@ const FAULTS: FaultControl[] = [
 		},
 	},
 	{
+		name: "Gemini CLI table entry points at another provider module",
+		expect: "route-google-gemini-cli.ts",
+		apply(copy) {
+			const tablePath = join(copy, "src", "providers", "register-builtins.ts");
+			const source = readFileSync(tablePath, "utf8");
+			const loader = '() => import("./google-gemini-cli"),';
+			assert.ok(source.includes(loader), "fault fixture: the Gemini CLI loader must exist in the selected table");
+			writeFileSync(tablePath, source.replace(loader, '() => import("./openai-completions"),'));
+		},
+	},
+	{
 		name: "provider module loaded eagerly instead of on first use",
 		expect: "lazy-table",
 		apply(copy) {
@@ -392,6 +403,17 @@ const FAULTS: FaultControl[] = [
 		},
 	},
 ];
+if (!plan.since("18.18.4")) FAULTS.push({
+	name: "Antigravity session identity loses its stable session key",
+	expect: "patch-google-gemini-cli.ts",
+	apply(copy) {
+		const providerPath = join(copy, "src", "providers", "google-gemini-cli.ts");
+		const source = readFileSync(providerPath, "utf8");
+		const call = "profile, state, options.sessionId)";
+		assert.ok(source.includes(call), "fault fixture: the Antigravity envelope accepts the session key");
+		writeFileSync(providerPath, source.replace(call, "profile, state, undefined)"));
+	},
+});
 
 /** Throwaway runtime whose pi-ai is a private copy; sibling packages shared by symlink. */
 function copyRuntime(dir: string): string {

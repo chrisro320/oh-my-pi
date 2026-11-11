@@ -38,6 +38,9 @@
 //  11. a late preparation after session reset cannot dispatch or persist.
 //  12. real loop capture/replay preserves prepared text and original display text;
 //      canonical command-looking text stays literal, but a typed command still runs.
+//  13. prepared input preserves upstream follow-up batches on dispatch and gives
+//      the original first prompt plus every unsent follow-up back on rejection.
+//      Two isolated source controls drop dispatch forwarding or the restored list.
 //
 // Not covered (accepted): the Ctrl+Enter / follow-up entry (`#submitFollowUp`
 // and its own restore call site) and restoration through the dequeue path
@@ -78,7 +81,7 @@
 //     draft, so the cancelled preparation defers instead of returning the text.
 //     Legs 7 and 8 stay green there, so leg 9 pins the input-transformer case.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { resolvePlan } from "./version-registry.ts";
@@ -87,6 +90,33 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const plan = resolvePlan({ gate: "verify-rejected-prepared-draft-restore", roots: [AGENT_ROOT] });
 const agentVersion = plan.version;
+const batchChild = process.env.OMP_VERIFY_PREPARED_BATCH_CHILD;
+if (batchChild && batchChild !== "positive") {
+	const mainFile = join(AGENT_ROOT, "src/main.ts");
+	const replacements: Record<string, [string, string]> = {
+		"omit-followups": [
+			"followUps: input.followUps,\n\t\t\t\t\tdisplayText: input.displayText,",
+			"displayText: input.displayText,",
+		],
+		"drop-restored-followups": [
+			"text: input.followUps\n\t\t\t\t\t\t\t? formatQueueShorthand([input.displayText ?? input.text, ...input.followUps])\n\t\t\t\t\t\t\t: (input.displayText ?? input.text),",
+			"text: input.displayText ?? input.text,",
+		],
+	};
+	assert.ok(replacements[batchChild], `unknown prepared-batch mutation: ${batchChild}`);
+	Bun.plugin({
+		name: "prepared-batch-control",
+		setup(build) {
+			build.onLoad({ filter: /\/src\/main\.ts$/ }, args => {
+				assert.equal(args.path, mainFile, "the mutation must use the selected runtime");
+				const source = readFileSync(args.path, "utf8");
+				const [from, to] = replacements[batchChild];
+				assert.equal(source.split(from).length, 2, "the prepared-batch mutation must match exactly once");
+				return { contents: source.replace(from, to), loader: "ts" };
+			});
+		},
+	});
+}
 
 // InteractiveMode opens prompt history and can persist presentation state. Its
 // process-wide paths must be private before any selected module is imported.
@@ -142,6 +172,9 @@ function makeMode(editor: FakeEditor) {
 		checkShutdownRequested: () => {},
 		renderOptimisticSkillMessage: () => {},
 		clearOptimisticSkillMessage: () => {},
+		// Ordinary input must not invoke the skill callback. Keep the host contract
+		// complete without allowing an accidental restoration path to pass silently.
+		restoreDroppedPrompt: () => { throw new Error("ordinary input unexpectedly used skill restoration"); },
 		updatePendingMessagesDisplay: () => {},
 		showError: (message: string) => errors.push(message),
 		showWarning: (message: string) => warnings.push(message),
@@ -230,6 +263,35 @@ const rejecting = makeSession(async () => {
 	throw new Error("dispatch rejected");
 });
 const accepting = makeSession(async () => true);
+
+if (batchChild) {
+	const editor = new FakeEditor();
+	const { mode, errors } = makeMode(editor);
+	const followUps = ["next original", "last original"];
+	let forwarded: unknown;
+	await main.submitInteractiveInput(mode, makeSession(async (_text, options) => {
+		forwarded = options;
+		return true;
+	}), prepared({ followUps }));
+	assert.ok(forwarded && typeof forwarded === "object" && "followUps" in forwarded,
+		"prepared batch follow-ups reach dispatch");
+	assert.deepEqual(forwarded.followUps, followUps, "prepared batch follow-ups reach dispatch");
+	assert.ok("displayText" in forwarded && "expandPromptTemplates" in forwarded, "prepared provenance reaches dispatch");
+	assert.equal(forwarded.displayText, "original body");
+	assert.equal(forwarded.expandPromptTemplates, false);
+	assert.equal(editor.getText(), "", "accepted prepared batches restore nothing");
+	await main.submitInteractiveInput(mode, rejecting, prepared({ followUps }));
+	const originalList = "=>\n1. original body\n2. next original\n3. last original";
+	assert.equal(editor.getText(), originalList, "prepared batch rejection restores the original list");
+	assert.deepEqual(editor.pendingImages, [image("attached")], "batch rejection keeps its attachments");
+	editor.setText("newer draft");
+	await main.submitInteractiveInput(mode, rejecting, prepared({ followUps }));
+	assert.equal(editor.getText(), "newer draft", "batch rejection never overwrites a newer draft");
+	assert.equal(mode.deferredDraftSnapshots[0].text, originalList, "the deferred batch keeps every original");
+	assert.deepEqual(errors, ["dispatch rejected", "dispatch rejected"]);
+	console.log("PREPARED_BATCH_OK");
+	process.exit(0);
+}
 
 // Leg 1: rejected dispatch returns the original text and the attachments.
 {
@@ -629,6 +691,29 @@ assert.equal(typeof draft.restoreRejectedDraft, "function", "0085 must export re
 		HistoryStorage.close();
 		resetSettingsForTest();
 		globalThis.fetch = originalFetch;
+	}
+}
+
+if (plan.since("18.18.4")) {
+	for (const control of ["positive", "omit-followups", "drop-restored-followups"]) {
+		const child = Bun.spawnSync([process.execPath, import.meta.path], {
+			env: { ...process.env, OMP_VERIFY_PREPARED_BATCH_CHILD: control },
+			timeout: 30_000,
+			killSignal: "SIGKILL",
+		});
+		const detail = child.stdout.toString() + child.stderr.toString();
+		if (control === "positive") {
+			assert.equal(child.exitCode, 0, `prepared batch must pass: ${detail}`);
+			assert.ok(detail.includes("PREPARED_BATCH_OK"), "the batch must finish its assertions");
+			console.log("PASS prepared follow-up batch");
+		} else {
+			assert.notEqual(child.exitCode, 0, `prepared batch control ${control} must fail`);
+			const assertion = control === "omit-followups"
+				? "prepared batch follow-ups reach dispatch"
+				: "prepared batch rejection restores the original list";
+			assert.ok(detail.includes(assertion), `control ${control} must fail on the batch, not a fixture: ${detail}`);
+			console.log(`MUTATION RED ${control}: exit ${child.exitCode}\n${detail}`);
+		}
 	}
 }
 

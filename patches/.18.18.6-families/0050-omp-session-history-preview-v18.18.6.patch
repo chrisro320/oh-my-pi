@@ -1,0 +1,730 @@
+--- a/pi-coding-agent/dist/types/session/session-listing.d.ts
++++ b/pi-coding-agent/dist/types/session/session-listing.d.ts
+@@ -39,6 +39,20 @@
+      * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+      */
+     status?: SessionStatus;
++    /**
++     * Model evidenced by the newest tail transition or assistant reply (in
++     * "provider/model" form); use the initial default only if neither is present.
++     * Optional for the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
++    /**
++     * Text of the newest assistant reply found in the tail window, for the
++     * picker's `Space` preview. Optional for the same reason as {@link status}:
++     * it needs the tail read, so a scan that skipped the tail leaves it unset.
++     */
++    lastAnswer?: string;
++    /** The bounded tail scan could not recover an answer; never substitute prefix text. */
++    lastAnswerUnavailable?: boolean;
+ }
+ export interface ResolvedSessionMatch {
+     session: SessionInfo;
+--- a/pi-coding-agent/src/session/session-listing.ts
++++ b/pi-coding-agent/src/session/session-listing.ts
+@@ -56,6 +56,20 @@
+ 	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+ 	 */
+ 	status?: SessionStatus;
++	/**
++	 * Model evidenced by the newest tail transition or assistant reply (in
++	 * "provider/model" form); use the initial default only if neither is present.
++	 * Optional for the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
++	/**
++	 * Text of the newest assistant reply found in the tail window, for the
++	 * picker's `Space` preview. Optional for the same reason as {@link status}:
++	 * it needs the tail read, so a scan that skipped the tail leaves it unset.
++	 */
++	lastAnswer?: string;
++	/** The bounded tail scan could not recover an answer; never substitute prefix text. */
++	lastAnswerUnavailable?: boolean;
+ }
+ 
+ export interface ResolvedSessionMatch {
+@@ -187,12 +201,126 @@
+ 	return "unknown";
+ }
+ 
++/**
++ * Model shown in picker: the newest tail model_change selects what resume
++ * restores when that transition is visible. This rule lives in
++ * `getRestorableSessionModels` / `getLastModelChangeRole` -- the
++ * branch's newest `model_change` decides, and each role keeps its own newest
++ * value. A `default` (or pre-role) transition, and a `fallback` one (retry
++ * swaps recorded by turn-recovery: transient degradations that must never
++ * masquerade as the user's pick), resolve to the default model; any other role
++ * -- `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
++ * a settings-defined one -- resolves to that role's own model. When the tail
++ * has no model_change, the newest assistant message identifies the model
++ * that last served the session. Prefer it to the initial default in the
++ * prefix: intervening switches can lie outside both scanned windows.
++ * Only with neither tail signal does the initial default win.
++ */
++function deriveLastModel(suffix: string, prefix: string): string | undefined {
++	const readEntry = (line: string): TailModelEntry | undefined => {
++		if (line.charCodeAt(0) !== 123) return undefined;
++		try {
++			return JSON.parse(line) as TailModelEntry;
++		} catch {
++			return undefined;
++		}
++	};
++	const lines = suffix.split("\n");
++	// Newest role first (walking backwards), then that role's newest model.
++	// Without a tail transition, prefer the last-served model over the prefix
++	// default, which can predate switches in the unscanned middle.
++	const roleModels = new Map<string, string>();
++	let newestRole: string | undefined;
++	let lastServed: string | undefined;
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const entry = readEntry(lines[i]!);
++		if (!entry) continue;
++		if (entry.type === "model_change" && typeof entry.model === "string" && entry.model) {
++			const role = entry.role ?? "default";
++			newestRole ??= role;
++			if (!roleModels.has(role)) roleModels.set(role, entry.model);
++			const resolved = newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++			if (roleModels.has(resolved)) break;
++			continue;
++		}
++		if (
++			lastServed === undefined &&
++			entry.type === "message" &&
++			entry.message?.role === "assistant" &&
++			typeof entry.message.model === "string"
++		) {
++			lastServed = entry.message.provider ? `${entry.message.provider}/${entry.message.model}` : entry.message.model;
++		}
++	}
++	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++	const fromTail = roleModels.get(resolvedRole) ?? (!newestRole ? lastServed : undefined);
++	if (fromTail) return fromTail;
++	for (const line of prefix.split("\n")) {
++		const entry = readEntry(line);
++		if (entry?.type === "model_change" && typeof entry.model === "string" && (entry.role ?? "default") === "default") {
++			return entry.model;
++		}
++	}
++	return undefined;
++}
++
++/** Tail-window entry shapes this module reads back out of a session file. */
++interface TailModelEntry {
++	type?: string;
++	model?: string;
++	role?: string;
++	message?: { role?: string; provider?: string; model?: string };
++}
++
+ interface TailMessage {
+ 	role?: string;
+ 	stopReason?: string;
+ 	content?: unknown;
+ }
+ 
++/** Keep the conclusion, not the opening, of a large assistant answer. */
++const LAST_ANSWER_MAX_CHARS = 4000;
++/** Extend a partial JSONL tail only this far; a larger answer stays unavailable. */
++const LAST_ANSWER_MAX_BYTES = 1024 * 1024;
++
++/** Newest complete assistant text in a tail window, skipping tool-only turns. */
++function deriveLastAnswer(suffix: string): string | undefined {
++	if (!suffix) return undefined;
++	const lines = suffix.split("\n");
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const line = lines[i];
++		if (line.charCodeAt(0) !== 123) continue;
++		let entry: { type?: string; message?: TailMessage };
++		try {
++			entry = JSON.parse(line);
++		} catch {
++			continue;
++		}
++		if (entry.type !== "message" || entry.message?.role !== "assistant") continue;
++		const text = textContent(entry.message.content as Message["content"], "\n").trim();
++		if (!text) continue;
++		return text.length > LAST_ANSWER_MAX_CHARS ? `…${text.slice(-LAST_ANSWER_MAX_CHARS)}` : text;
++	}
++	return undefined;
++}
++
++/** Recover an assistant line that straddles the usual status/model tail window. */
++async function readLastAnswer(
++	file: string,
++	storage: SessionStorage,
++	suffix: string,
++	size: number,
++): Promise<string | undefined> {
++	let answer = deriveLastAnswer(suffix);
++	const limit = Math.min(size, LAST_ANSWER_MAX_BYTES);
++	for (let bytes = SESSION_LIST_SUFFIX_BYTES; answer === undefined && bytes < limit;) {
++		bytes = Math.min(bytes * 4, limit);
++		[, suffix] = await storage.readTextSlices(file, 0, bytes);
++		answer = deriveLastAnswer(suffix);
++	}
++	return answer;
++}
++
+ function isToolCallBlock(block: unknown): boolean {
+ 	return typeof block === "object" && block !== null && (block as { type?: unknown }).type === "toolCall";
+ }
+@@ -525,6 +653,7 @@
+ 		}
+ 		firstMessage ||= extractFirstDisplayMessageFromPrefix(content) ?? "";
+ 		const messageCount = Math.max(parsedMessageCount, countMessageMarkers(content));
++		const lastAnswer = withStatus ? await readLastAnswer(file, storage, suffix, size) : undefined;
+ 		const info: SessionInfo = {
+ 			path: file,
+ 			id: header.id,
+@@ -539,7 +668,10 @@
+ 			size,
+ 			firstMessage: firstMessage || "(no messages)",
+ 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
++			lastModel: deriveLastModel(suffix, content),
+ 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
++			lastAnswer,
++			lastAnswerUnavailable: withStatus && lastAnswer === undefined && size > LAST_ANSWER_MAX_BYTES || undefined,
+ 		};
+ 		// The cache keeps its own shallow copy; hits also hand out copies, so
+ 		// callers can never mutate the shared cached object.
+--- a/pi-tui/dist/types/overlays/session-selector.d.ts
++++ b/pi-tui/dist/types/overlays/session-selector.d.ts
+@@ -15,6 +15,18 @@
+     firstMessage: string;
+     allMessagesText: string;
+     status?: SessionSelectorStatus;
++    /**
++     * Model the session last used (selector form, "provider/model"). Optional for
++     * the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
++    /**
++     * Text of the newest assistant reply, for the `Space` preview. Optional for
++     * the same reason as {@link status}: it comes from the tail read.
++     */
++    lastAnswer?: string;
++    /** The listing exhausted its bounded answer read without recovering the newest reply. */
++    lastAnswerUnavailable?: boolean;
+     /** Path to the parent session when this one was forked. */
+     parentSessionPath?: string;
+ }
+--- a/pi-tui/src/overlays/session-info-overlay.ts
++++ b/pi-tui/src/overlays/session-info-overlay.ts
+@@ -229,7 +229,7 @@
+ 					else if (entry.k === "File") {
+ 						const path = joined(entry.v);
+ 						identity.push(
+-							path.includes("/")
++							path !== "In-memory"
+ 								? identityField("File", [span(path, "path")], "file", `Copy ${path}`)
+ 								: identityField("File", [span(path, "muted")], "file"),
+ 						);
+--- a/pi-tui/src/overlays/session-selector.ts
++++ b/pi-tui/src/overlays/session-selector.ts
+@@ -12,10 +12,11 @@
+ 	Text,
+ 	truncateToWidth,
+ 	visibleWidth,
++	wrapTextWithAnsi,
+ } from "../index";
+ import * as path from "node:path";
+ import { formatBytes, getProjectDir } from "@oh-my-pi/pi-utils";
+-import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
++import type { TspPickerGroup, TspPickerItem, TspScrollBy, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+ import { compact, kv, md, node, span } from "../native/describe";
+ import {
+ 	bindingKeys,
+@@ -27,9 +28,10 @@
+ 	pickerEvent,
+ 	pickerHits,
+ } from "../native/picker";
+-import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
++import type { DescribeContext, NativeChild, NativeNode, NativeScroll, NativeUiEvent } from "../native/node";
+ import { actionHint, hintsRow, type NativeHint, overlayCard } from "../native/overlay";
+ import { plainText } from "../native/spans";
++import { isNativeRendering } from "../native/state";
+ import { theme } from "../theme/theme";
+ import { contentRowWidth } from "../chrome/selector-helpers";
+ import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
+@@ -49,6 +51,18 @@
+ 	firstMessage: string;
+ 	allMessagesText: string;
+ 	status?: SessionSelectorStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"). Optional for
++	 * the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
++	/**
++	 * Text of the newest assistant reply, for the `Space` preview. Optional for
++	 * the same reason as {@link status}: it comes from the tail read.
++	 */
++	lastAnswer?: string;
++	/** The listing exhausted its bounded answer read without recovering the newest reply. */
++	lastAnswerUnavailable?: boolean;
+ 	/** Path to the parent session when this one was forked. */
+ 	parentSessionPath?: string;
+ }
+@@ -136,8 +150,16 @@
+ 	return title || plainText(session.firstMessage).replace(/\s+/g, " ").trim() || session.id;
+ }
+ 
+-/** Longest prompt or answer excerpt the native preview shows. */
++/** Longest prompt or answer excerpt the preview shows. */
+ const PREVIEW_EXCERPT_CHARS = 1200;
++
++/** The conclusion is the end of the newest tail-scanned assistant answer. */
++function previewAnswerText(session: SessionSelectorEntry): string {
++	if (session.lastAnswerUnavailable) return "Latest answer unavailable within preview limit.";
++	const answer = (session.lastAnswer ?? "").trim();
++	return answer.length > PREVIEW_EXCERPT_CHARS ? `…${answer.slice(-PREVIEW_EXCERPT_CHARS)}` : answer;
++}
++
+ /** The preview follows the selection once it rests this long (holding ↓ doesn't flood the wire). */
+ const PREVIEW_SETTLE_MS = 60;
+ const DAY_MS = 86_400_000;
+@@ -161,18 +183,14 @@
+ 		: [span(short, "path")];
+ }
+ 
+-/**
+- * The native preview of a session: its title, a fact grid, and the
+- * conversation's first prompt (user tint) plus the tail of the rest as an
+- * excerpt of the latest answer, both clipped to {@link PREVIEW_EXCERPT_CHARS}.
+- */
++/** The native preview shows the first prompt and the newest answer's conclusion. */
+ function sessionPreview(session: SessionSelectorEntry, forkedFrom: string | undefined): NativeChild[] {
+ 	const status = sessionStatusSpan(session.status);
+ 	const created = session.created && !Number.isNaN(session.created.getTime()) ? session.created : undefined;
+ 	const first = session.firstMessage.trim();
+-	const rest = session.allMessagesText.startsWith(session.firstMessage)
+-		? session.allMessagesText.slice(session.firstMessage.length).trim()
+-		: "";
++	// The side preview and the `Space` previews must show the same conclusion:
++	// the prefix-bounded message text stops long before a real conversation does.
++	const rest = previewAnswerText(session);
+ 	const conversation = compact([
+ 		first.length > 0 &&
+ 			md(first.length > PREVIEW_EXCERPT_CHARS ? `${first.slice(0, PREVIEW_EXCERPT_CHARS)}…` : first, {
+@@ -281,6 +299,19 @@
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ 
++/**
++ * Compact selector form of a model for the metadata line: keep the id part,
++ * trim to the last two "/"-separated segments so vendor-prefixed ids like
++ * "commandcode/deepseek/deepseek-v4.1-flash" stay recognizable, and drop
++ * an ":tag" suffix ("ollama-cloud/glm-5.3-flash:max" -> "glm-5.3-flash").
++ */
++function shortenModelName(selector: string): string {
++	const withoutTag = selector.split(":", 1)[0] ?? selector;
++	const segments = withoutTag.split("/").filter(s => s.length > 0);
++	if (segments.length === 0) return selector;
++	return segments.slice(-2).join("/");
++}
++
+ function sessionSearchText(session: SessionSelectorEntry): string {
+ 	const parts = [
+ 		session.id,
+@@ -971,6 +1002,11 @@
+ 		return this.#menu.selectedItem;
+ 	}
+ 
++	/** The live search query; empty when the picker is browsing rather than filtering. */
++	get searchQuery(): string {
++		return this.#searchInput.getValue();
++	}
++
+ 	/** Label of the session at `sessionPath` in this listing, else its file name. */
+ 	parentLabel(sessionPath: string): string {
+ 		const parent = this.#allSessions.find(s => s.path === sessionPath);
+@@ -1208,6 +1244,7 @@
+ 		if (current) push(span("current", "accent"));
+ 		const status = sessionStatusSpan(session.status);
+ 		if (status) push(status);
++		if (session.lastModel) push(span(shortenModelName(session.lastModel), "dim"));
+ 		if (session.parentSessionPath) push(span("fork", "dim"));
+ 		if (this.#showCwd && session.cwd) push(span(shortenPath(session.cwd), "path"));
+ 		const item = node(
+@@ -1323,6 +1360,9 @@
+ 			if (status) {
+ 				metadata += ` ${dot} ${status}`;
+ 			}
++			if (session.lastModel) {
++				metadata += ` ${dot} ${dim(shortenModelName(session.lastModel))}`;
++			}
+ 			if (session.parentSessionPath) {
+ 				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+ 			}
+@@ -1452,6 +1492,114 @@
+ 	}
+ }
+ 
++/**
++ * Session text as preview rows input: tabs expanded, carriage returns and other
++ * control characters dropped so persisted bytes can never move the cursor or
++ * paint escapes into the picker's frame. Newlines stay: they are paragraph
++ * breaks the wrapping keeps.
++ */
++function previewText(text: string): string {
++	return replaceTabs(text)
++		.replace(/\r\n?/g, "\n")
++		.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
++}
++
++/**
++ * ANSI `Space` preview of one session: its first prompt and its newest answer,
++ * windowed to the rows the picker can spare. The window is deliberate — a child
++ * taller than the overlay frame would make the panel truncate its own top rows,
++ * committing chrome into scrollback (issue #3283) — so longer transcripts scroll
++ * inside the viewport instead of growing the frame.
++ */
++class SessionPreviewView<T extends SessionSelectorEntry> implements Component {
++	#session: T;
++	/** Rows this view may paint, the last of which is its scroll indicator. */
++	readonly #height: number;
++	readonly #onScroll: (() => void) | undefined;
++	#memo: { width: number; lines: readonly string[] } | undefined;
++	#offset = 0;
++
++	constructor(session: T, height: number, onScroll?: () => void) {
++		this.#session = session;
++		this.#height = Math.max(3, height);
++		this.#onScroll = onScroll;
++	}
++
++	/** Hydrate an indexed row without losing the open preview or its scroll position. */
++	setSession(session: T): void {
++		this.#session = session;
++		this.#memo = undefined;
++	}
++
++	/** Scroll by `delta` lines, clamped to the content; true when the offset moved. */
++	scroll(delta: number): boolean {
++		const total = this.#linesFor(this.#memo?.width ?? 80).length;
++		const maxOffset = Math.max(0, total - this.#visibleRows());
++		const next = Math.min(maxOffset, Math.max(0, this.#offset + delta));
++		if (next === this.#offset) return false;
++		this.#offset = next;
++		this.#onScroll?.();
++		return true;
++	}
++
++	/** Rows of scrollable content; the last row is always the indicator. */
++	#visibleRows(): number {
++		return Math.max(1, this.#height - 1);
++	}
++
++	#linesFor(width: number): readonly string[] {
++		const cached = this.#memo;
++		if (cached && cached.width === width) return cached.lines;
++		const lines = this.#build(width);
++		this.#memo = { width, lines };
++		return lines;
++	}
++
++	/** Header, first prompt, then the newest answer; no transcript reads here. */
++	#build(width: number): string[] {
++		const session = this.#session;
++		const lines: string[] = [];
++		lines.push(theme.bold(truncateToWidth(sessionLabel(session), width)));
++		const facts: string[] = [formatSessionDate(session.modified), formatBytes(session.size)];
++		const status = formatSessionStatus(session.status);
++		if (status) facts.push(status);
++		if (session.lastModel) facts.push(shortenModelName(session.lastModel));
++		if (session.cwd) facts.push(shortenPath(session.cwd));
++		lines.push(theme.fg("dim", truncateToWidth(facts.join(` ${theme.sep.dot} `), width)));
++		lines.push("");
++		const bodyWidth = Math.max(8, width - 2);
++		const section = (heading: string, text: string): void => {
++			if (!text) return;
++			lines.push(theme.fg("accent", heading));
++			for (const row of wrapTextWithAnsi(text, bodyWidth)) lines.push(`  ${row}`);
++			lines.push("");
++		};
++		if (!session.firstMessage && !session.allMessagesText && session.lastAnswer === undefined) {
++			lines.push(theme.fg("dim", "Loading conversation…"));
++		}
++		const answer = previewAnswerText(session);
++		section("First prompt", previewText(session.firstMessage).trim());
++		section("Latest answer", previewText(answer).trim());
++		if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
++		return lines;
++	}
++
++	render(width: number): readonly string[] {
++		const lines = this.#linesFor(width);
++		const visible = this.#visibleRows();
++		const maxOffset = Math.max(0, lines.length - visible);
++		if (this.#offset > maxOffset) this.#offset = maxOffset;
++		const window = lines.slice(this.#offset, this.#offset + visible);
++		while (window.length < visible) window.push("");
++		const total = lines.length;
++		const indicator =
++			total <= visible
++				? ""
++				: theme.fg("dim", `lines ${this.#offset + 1}-${Math.min(total, this.#offset + visible)} of ${total} · ↑↓ scroll`);
++		return [...window.map(line => truncateToWidth(line, width)), truncateToWidth(indicator, width)];
++	}
++}
++
+ export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
+ 	onDelete?: (session: T) => Promise<boolean>;
+ 	/**
+@@ -1573,6 +1721,14 @@
+ 	#previewPending: T | undefined;
+ 	#previewSettled: T | undefined;
+ 	#previewTimer: NodeJS.Timeout | undefined;
++	/** Open terminal `Space` preview (ANSI path only); it owns the content slot while set. */
++	#previewView: SessionPreviewView<T> | null = null;
++	/** The session whose `Space` preview is open — ANSI view or native card. */
++	#previewSession: T | undefined;
++	/** Scroll keys forwarded to the native preview's capped body, once per press. */
++	#previewScroll: NativeScroll | undefined;
++	/** Whether the live native terminal draws the data-first `picker` kind (set by `describe`). */
++	#nativeKindPicker = false;
+ 	#pickerMemo:
+ 		| {
+ 				view: SessionPickerView;
+@@ -1719,6 +1875,17 @@
+ 		this.#refreshPending = false;
+ 		if (this.#scope === "folder") this.#sessionList.refreshSessions(this.#folderSessions, this.#folderShowCwd());
+ 		else if (this.#globalSessions) this.#sessionList.refreshSessions(this.#globalSessions, true);
++		const preview = this.#previewSession;
++		if (preview) {
++			const sessions = this.#scope === "folder" ? this.#folderSessions : this.#globalSessions;
++			const refreshed = sessions?.find(session => session.path === preview.path);
++			if (refreshed) {
++				this.#previewSession = refreshed;
++				this.#previewView?.setSession(refreshed);
++			} else {
++				this.#closePreview();
++			}
++		}
+ 		this.#onRequestRender?.();
+ 	}
+ 
+@@ -2028,7 +2195,9 @@
+ 		const pinKey = pin && getKeybindings().getKeys(pin.binding)[0];
+ 		const hint = theme.fg(
+ 			"muted",
+-			`[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} delete · ` : ""}${this.#onRename ? `${formatKeyHint("f2")} rename · ` : ""}${pinKey ? `${formatKeyHint(pinKey)} ${pin.label} · ` : ""}${formatKeyHint("enter")} select · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} cancel]`,
++			this.#previewView
++				? `[${formatKeyHint("space")}/${cancel} back · ${formatKeyHint("up")}/${formatKeyHint("down")} scroll · ${formatKeyHint("enter")} resume · ${formatKeyHint("ctrl+c")} exit]`
++				: `[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} delete · ` : ""}${this.#onRename ? `${formatKeyHint("f2")} rename · ` : ""}${pinKey ? `${formatKeyHint(pinKey)} ${pin.label} · ` : ""}${formatKeyHint("space")} preview · ${formatKeyHint("enter")} select · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} cancel]`,
+ 		);
+ 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
+ 	}
+@@ -2040,6 +2209,8 @@
+ 
+ 	/** Over the transcript the picker is its own sheet (`layer`); the standalone app fills the screen surface. */
+ 	nativeSheet(cx: DescribeContext): boolean {
++		// A preview (and a rename editor) is a card, not the data-first sheet.
++		if (this.#previewSession) return false;
+ 		// A rename editor is a card with a text field, not a picker sheet: it
+ 		// renders in place, like the generic composition does.
+ 		if (this.#renameDialog) return false;
+@@ -2057,7 +2228,14 @@
+ 		// capture every keystroke into an invisible field. While the rename
+ 		// editor is open, describe the card path instead (the same fallback
+ 		// the hook selector uses for its slider and countdown).
+-		if (cx.supports("picker") && !this.#renameDialog) return this.#describePicker();
++		this.#nativeKindPicker = cx.supports("picker");
++		// A `Space` preview replaces the sheet on every native path: the picker
++		// kind may hide its side column (narrow panes) and the card path never
++		// had one, so this card is what both show when the preview is open.
++		if (this.#previewSession && !this.#confirmationDialog && !this.#renameDialog) {
++			return this.#describePreviewCard(this.#previewSession);
++		}
++		if (this.#nativeKindPicker && !this.#renameDialog) return this.#describePicker();
+ 		const list = this.#sessionList.describeList();
+ 		const dialog = this.#confirmationDialog ?? this.#renameDialog;
+ 		const memo = this.#nativeMemo;
+@@ -2109,6 +2287,41 @@
+ 		return result;
+ 	}
+ 
++	/** The native `Space` card: a capped, keyboard-scrollable body and a pinned footer. */
++	#describePreviewCard(session: T): NativeNode {
++		const status = sessionStatusSpan(session.status);
++		const facts = kv([
++			["Folder", session.cwd ? cwdSpans(session.cwd) : undefined],
++			["Modified", pickerDate(session.modified)],
++			["Size", formatBytes(session.size)],
++			["Status", status && [status]],
++			["Model", session.lastModel ? [span(shortenModelName(session.lastModel), "dim")] : undefined],
++		]);
++		const prompt = session.firstMessage.trim();
++		const answer = previewAnswerText(session).trim();
++		const conversation = compact([
++			prompt.length > 0 && md(prompt, { tone: "user" }),
++			answer.length > 0 && md(answer),
++		]);
++		const hints: NativeHint[] = [
++			{ keys: ["space"], label: "back" },
++			{ keys: ["enter"], label: this.#actionLabel.toLowerCase() },
++			{ keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"], label: "back" },
++			{ keys: ["up", "down", "pageUp", "pageDown", "home", "end"], label: "scroll" },
++		];
++		const children: NativeChild[] = [facts];
++		if (!session.firstMessage && !session.allMessagesText && session.lastAnswer === undefined) {
++			children.push(node("text", { text: "Loading conversation…", tone: "dim" }));
++		}
++		if (conversation.length > 0) children.push(node("section", { head: "Conversation" }, conversation));
++		// Like ScrollView.describe(), a height-capped column is a native scroller.
++		const body: NativeNode = {
++			...node("col", { max: { h: `${this.#previewRows()}lines` } }, children, "body"),
++			scroll: this.#previewScroll,
++		};
++		return overlayCard("omp.overlay.session-preview", sessionLabel(session), [body, hintsRow(hints)]);
++	}
++
+ 	/**
+ 	 * `lg` cards sheet (`screen` for the standalone app): sessions grouped by
+ 	 * day (ranked flat while searching), the selected session's preview, the
+@@ -2140,6 +2353,11 @@
+ 		const loading = message?.kind === "loading";
+ 		const toggle = list.onToggleScope !== undefined;
+ 		const actions = [pickerAction("resume", this.#actionLabel, "enter", { primary: true })];
++		// Space previews the selection the way the ANSI footer advertises it; the
++		// query keeps the key while the user is filtering.
++		if (this.#sessionList.searchQuery.length === 0 && this.#sessionList.selectedSession) {
++			actions.push(pickerAction("preview", "Preview", "space"));
++		}
+ 		if (this.#onDelete) actions.push(pickerAction("delete", "Delete", "backspace"));
+ 		if (this.#onRename) actions.push(pickerAction("rename", "Rename", "f2"));
+ 		const pin = this.#pinAction();
+@@ -2253,6 +2471,7 @@
+ 			else list.onCancel?.();
+ 		} else if (choice || this.#renameDialog) return;
+ 		else if (ev.act === "resume") list.resumeSelected();
++		else if (ev.act === "preview") this.#openPreview();
+ 		else if (ev.act === "delete") list.requestDelete();
+ 		else if (ev.act === "rename") list.requestRename();
+ 		else if (ev.act === "pin") list.requestPin();
+@@ -2286,23 +2505,121 @@
+ 			this.#handleMouse(keyData);
+ 			return;
+ 		}
++		// The preview takes every key: the list's cursor and query must be exactly
++		// as they were when it closes. Native card mode needs this too, since the
++		// preview replaces the described list.
++		if (this.#previewSession) {
++			this.#handlePreviewInput(keyData);
++			return;
++		}
+ 		if (this.#confirmationDialog) {
+ 			this.#confirmationDialog.handleInput(keyData);
+ 		} else if (this.#renameDialog) {
+ 			this.#renameField?.handleInput(keyData);
++		} else if (
++			// Picker keyboards stay in the program; native actions are the pointer path.
++			matchesKey(keyData, "space") &&
++			this.#sessionList.searchQuery.length === 0 &&
++			this.#sessionList.selectedSession
++		) {
++			// Space previews the selection; while a query is typed it stays a space
++			// in the search box (below).
++			this.#openPreview();
+ 		} else {
+ 			this.#sessionList.handleInput(keyData);
+ 		}
+ 	}
+ 
+ 	/**
++	 * Rows a preview may paint: the viewport minus the panel's top border, its
++	 * spacer, and the pinned footer (blank, hint, blank, bottom border). The
++	 * preview itself renders exactly this many lines, so the frame never grows
++	 * past the viewport and nothing of it reaches scrollback.
++	 */
++	#previewRows(): number {
++		return Math.max(3, this.#getTerminalRows() - 6);
++	}
++
++	/** Space on an empty query: show the selected session's preview in place of the list. */
++	#openPreview(): void {
++		const session = this.#sessionList.selectedSession;
++		if (!session || this.#previewSession) return;
++		this.#previewSession = session;
++		this.#previewScroll = undefined;
++		if (!isNativeRendering()) {
++			const view = new SessionPreviewView(session, this.#previewRows(), () => this.#onRequestRender?.());
++			this.#previewView = view;
++			this.#contentSlot.clear();
++			this.#contentSlot.addChild(view);
++		}
++		this.#onRequestRender?.();
++	}
++
++	/** Space / Esc from the preview: back to the list with cursor and query untouched. */
++	#closePreview(): void {
++		if (!this.#previewSession) return;
++		this.#previewSession = undefined;
++		this.#previewScroll = undefined;
++		if (this.#previewView) {
++			this.#previewView = null;
++			this.#contentSlot.clear();
++			this.#contentSlot.addChild(this.#sessionList);
++		}
++		this.#onRequestRender?.();
++	}
++
++	/** Preview keys: close, resume, exit, and scrolling; nothing reaches the search input. */
++	#handlePreviewInput(keyData: string): void {
++		if (!this.#previewSession) return;
++		if (matchesAppInterrupt(keyData) || matchesKey(keyData, "space")) {
++			this.#closePreview();
++			return;
++		}
++		if (matchesKey(keyData, "enter") || matchesKey(keyData, "return") || keyData === "\n") {
++			// Resume the previewed session; a failed resume reopens the picker on
++			// the list, where the cursor still sits on it.
++			this.#closePreview();
++			this.#sessionList.resumeSelected();
++			return;
++		}
++		if (matchesKey(keyData, "ctrl+c")) {
++			this.#sessionList.onExit();
++			return;
++		}
++		const by: TspScrollBy | undefined = matchesSelectDown(keyData)
++			? "line-down"
++			: matchesSelectUp(keyData)
++				? "line-up"
++				: matchesKey(keyData, "pageDown")
++					? "page-down"
++					: matchesKey(keyData, "pageUp")
++						? "page-up"
++						: matchesKey(keyData, "home")
++							? "start"
++							: matchesKey(keyData, "end")
++								? "end"
++								: undefined;
++		if (by === undefined) return;
++		const view = this.#previewView;
++		if (!view) {
++			this.#previewScroll = { by, n: (this.#previewScroll?.n ?? 0) + 1 };
++			this.#onRequestRender?.();
++			return;
++		}
++		const page = Math.max(1, this.#previewRows() - 2);
++		if (by === "start") view.scroll(-Number.MAX_SAFE_INTEGER);
++		else if (by === "end") view.scroll(Number.MAX_SAFE_INTEGER);
++		else view.scroll(by === "line-up" ? -1 : by === "line-down" ? 1 : by === "page-up" ? -page : page);
++	}
++
++	/**
+ 	 * SGR mouse reports, delivered only while the picker holds the alternate
+ 	 * screen (the fullscreen overlay enables tracking and paints from screen row
+ 	 * 0). Wheel scrolls the list; a left click resumes the session under the
+ 	 * pointer. Mouse is inert while the delete-confirmation dialog is open.
+ 	 */
+ 	#handleMouse(data: string): void {
+-		if (this.#confirmationDialog || this.#renameDialog) return;
++		if (this.#previewView || this.#confirmationDialog || this.#renameDialog) return;
+ 		routeSgrMouseInput(data, event => {
+ 			if (event.wheel !== null) {
+ 				this.#sessionList.handleWheel(event.wheel);

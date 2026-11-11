@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { resolvePlan } from "./version-registry.ts";
 import { enterPrivateHome } from "./durability-harness.ts";
 
@@ -546,6 +546,78 @@ try {
 		await assert.rejects(() => markSessionMoved(outgoingFile, "departure after rollback"),
 			/live.*(writer|process)|another live|owns it/i);
 
+		// The history selector passes relocation into the same cancellable SDK
+		// switch. A removed cwd must not make cancellation publish a fork or move
+		// a departed source's journal/artifacts outside rollback ownership.
+		async function cancelledRemovedWorktreeResume(mutate: boolean): Promise<void> {
+			const name = mutate ? "cancel-removed-mutant" : "cancel-removed";
+			const removed = join(root, `${name}-worktree`);
+			mkdirSync(removed);
+			const source = await archiveFixture(name, false, removed);
+			await markSessionMoved(source.file, "departed removed-worktree destination");
+			rmSync(removed, { recursive: true });
+			const destinationCwd = join(root, `${name}-destination-cwd`);
+			const destinationDir = join(root, `${name}-destination-sessions`);
+			mkdirSync(destinationCwd);
+			mkdirSync(destinationDir);
+			writeFileSync(join(destinationDir, "existing.bin"), Buffer.from([9, 0, 255, 4]));
+			const beforeSource = snapshotTree(source.sessionDir);
+			const sourceBytes = readFileSync(source.file, "utf8");
+			const beforeDestination = snapshotTree(destinationDir);
+			await session.sessionManager.flush();
+			const activeFile = session.sessionManager.getSessionFile();
+			const activeId = session.sessionManager.getSessionId();
+			assert.ok(activeFile);
+			const beforeActive = snapshotTree(dirname(activeFile));
+			let decisions = 0, mutationHits = 0;
+			const originalAdoption = SessionManager.prototype.beginWritableAdoption;
+			if (mutate) {
+				// Reproduce the broken ordering: move the departed source before
+				// writable adoption has taken rollback ownership of a new fork.
+				SessionManager.prototype.beginWritableAdoption = async function () {
+					if (this.getSessionFile() === source.file) {
+						mutationHits++;
+						await this.moveTo(destinationCwd, destinationDir);
+					}
+					return originalAdoption.call(this);
+				};
+			}
+			let switched: boolean;
+			try {
+				switched = await session.switchSession(source.file, {
+					relocateTo: { cwd: destinationCwd, sessionDir: destinationDir },
+					onCwdChange: async () => { decisions++; return false; },
+				});
+			} finally {
+				SessionManager.prototype.beginWritableAdoption = originalAdoption;
+			}
+			assert.equal(switched, false, "the removed-worktree resume must be cancellable");
+			assert.equal(decisions, 1, "cancel the real cwd admission after relocation was requested");
+			if (mutate) assert.equal(mutationHits, 1, "the control must actually relocate before adoption");
+			assert.deepEqual(snapshotTree(source.sessionDir), beforeSource,
+				"cancelled removed-worktree resume leaves source paths, journal and artifacts byte-identical");
+			assert.equal(readFileSync(source.file, "utf8"), sourceBytes,
+				"cancelled removed-worktree resume retains the departed journal bytes");
+			assert.deepEqual(snapshotTree(destinationDir), beforeDestination,
+				"cancelled removed-worktree resume publishes no destination journal, fork or artifacts");
+			assert.deepEqual(snapshotTree(dirname(activeFile)), beforeActive,
+				"cancelled removed-worktree resume leaves every outgoing session byte untouched");
+			assert.equal(session.sessionManager.getSessionId(), activeId, "cancellation retains the active identity");
+			assert.equal(session.sessionManager.getSessionFile(), activeFile, "cancellation retains the active journal path");
+			const text = "append remains writable after cancelled removed-worktree resume";
+			session.sessionManager.appendMessage({ role: "user", content: text, timestamp: 12 });
+			await session.sessionManager.flush();
+			assert.ok(readFileSync(activeFile, "utf8").includes(text), "the outgoing owner can still append after rollback");
+			assert.equal(lastSessionTransfer(session.sessionManager.getEntries()), undefined);
+		}
+		await cancelledRemovedWorktreeResume(false);
+		console.log("PASS cancelled removed-worktree resume: source, destination and outgoing bytes unchanged; append succeeds");
+		await assert.rejects(() => cancelledRemovedWorktreeResume(true), error => {
+			assert.ok(error instanceof assert.AssertionError);
+			assert.match(error.message, /cancelled removed-worktree resume leaves source paths, journal and artifacts byte-identical/);
+			console.log(`MUTATION RED relocation-before-adoption: ${error.message}`);
+			return true;
+		}, "relocating before adoption must fail the cancelled-resume byte assertions");
 		const originalFlush = SessionManager.prototype.flush;
 		let noticeFailed = false;
 		SessionManager.prototype.flush = async function () {

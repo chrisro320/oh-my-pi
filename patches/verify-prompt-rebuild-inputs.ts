@@ -51,11 +51,11 @@
 //   u15-pi-intent-prompt         `PI_INTENT_PROMPT` replaces the default
 //        guidance line on the documented explicit-refresh contract, once, and a
 //        repeat refresh with the same value leaves the bytes identical;
-//   u8-ovnfs-checkout-guidance   (18.18.0 only) an unavailable `ovnfs` renders
+//   u8-ovnfs-checkout-guidance   an unavailable `ovnfs` renders
 //        no "Separate checkouts" section, availability adds it exactly once,
 //        names the configured command, a further turn keeps it stable, and
 //        losing the binary removes it exactly once (plan row U8);
-//   u8-ovnfs-path-fallback       (18.18.0 only) the same add/remove contract
+//   u8-ovnfs-path-fallback       the same add/remove contract
 //        through PATH alone (`ovnfs.path` unset, isolated PATH).
 //
 // A headless session renders no `out://` guidance whatever the setting's default
@@ -71,17 +71,16 @@
 //   * the AGENTS.md exclusion ignored;
 //   * `intentTracing` dropped from the prompt-input surface;
 //   * `out://` replies never advertised;
-//   * `ovnfs.path` dropped from the prompt-input surface (18.18.0 only);
-//   * the `|| "ovnfs"` PATH fallback removed (18.18.0 only).
+//   * `ovnfs.path` dropped from the prompt-input surface;
+//   * the `|| "ovnfs"` PATH fallback removed.
 //
 // Usage:
 //   OMP_PATCH_VERIFY_NM=<runtime>/node_modules/@oh-my-pi bun patches/verify-prompt-rebuild-inputs.ts
 // Optional: OMP_PROMPT_REBUILD_RESULT=<json path>, OMP_PROMPT_REBUILD_SCRATCH=<dir>,
 // OMP_PROMPT_REBUILD_NO_MUTATIONS=1.
 //
-// The gate pins the 18.16.0 tree: a different package version fails closed
-// instead of silently checking another release's contract. It also passes on
-// the pristine 18.16.0 runtime, because nothing here depends on a patch hunk.
+// The registry selects the supported tree and fails closed on other releases.
+// These prompt-input contracts do not depend on a patch hunk.
 
 import assert from "node:assert/strict";
 import {
@@ -158,14 +157,10 @@ const MUTATIONS: MutationControl[] = [
 	{
 		name: "PI_INTENT_PROMPT ignored",
 		file: "src/system-prompt.ts",
-		// 18.16.0 had only the environment override; 18.18.0 added a caller default
-		// behind it (`$env.PI_INTENT_PROMPT || intentGuidance || ""`), so the
-		// mutation anchors on the line each pinned tree actually carries.
-		from:
-			!plan.since("18.18.0")
-				? 'intentGuidance: $env.PI_INTENT_PROMPT ?? "",'
-				: 'intentGuidance: $env.PI_INTENT_PROMPT || intentGuidance || "",',
-		to: !plan.since("18.18.0") ? 'intentGuidance: "",' : 'intentGuidance: intentGuidance || "",',
+		// Every registered plan carries the caller default behind the environment
+		// override (`$env.PI_INTENT_PROMPT || intentGuidance || ""`).
+		from: 'intentGuidance: $env.PI_INTENT_PROMPT || intentGuidance || "",',
+		to: 'intentGuidance: intentGuidance || "",',
 		mustFail: ["u15-pi-intent-prompt"],
 	},
 	{
@@ -189,26 +184,21 @@ const MUTATIONS: MutationControl[] = [
 		to: "outReplies: false,",
 		mustFail: ["u15-out-replies-flip"],
 	},
-	// U8 is 18.18.0-only: the separate-checkout guidance and its `ovnfs.path`
-	// prompt input did not exist on 18.16.0.
-	...(plan.since("18.18.0")
-		? [
-				{
-					name: "ovnfs availability is not a prompt input",
-					file: "src/system-prompt.ts",
-					from: "\tovnfsPath: cfgOvnfsPath,\n",
-					to: "",
-					mustFail: ["u8-ovnfs-checkout-guidance"],
-				},
-				{
-					name: "ovnfs PATH fallback removed",
-					file: "src/task/settings.ts",
-					from: 'const command = cfgOvnfsPath.get(settings)?.trim() || "ovnfs";',
-					to: 'const command = cfgOvnfsPath.get(settings)?.trim() || "";',
-					mustFail: ["u8-ovnfs-path-fallback"],
-				},
-			]
-		: []),
+	// U8: the separate-checkout guidance and its `ovnfs.path` prompt input.
+	{
+		name: "ovnfs availability is not a prompt input",
+		file: "src/system-prompt.ts",
+		from: "\tovnfsPath: cfgOvnfsPath,\n",
+		to: "",
+		mustFail: ["u8-ovnfs-checkout-guidance"],
+	},
+	{
+		name: "ovnfs PATH fallback removed",
+		file: "src/task/settings.ts",
+		from: 'const command = cfgOvnfsPath.get(settings)?.trim() || "ovnfs";',
+		to: 'const command = cfgOvnfsPath.get(settings)?.trim() || "";',
+		mustFail: ["u8-ovnfs-path-fallback"],
+	},
 ];
 
 /** Variables that would redirect the fixture instead of the input under test. */
@@ -892,102 +882,100 @@ await scenario("u15-pi-intent-prompt", async fixture => {
 // render exactly once while present, vanish when absent, and rebuild exactly
 // once on each transition. The fixture uses `ovnfs.path` (an explicit absolute
 // path) so the case does not depend on whatever is on PATH.
-if (plan.since("18.18.0")) {
-	await scenario("u8-ovnfs-checkout-guidance", async fixture => {
-		const ovnfsBinary = join(fixture.cwd, "ovnfs-fixture");
-		writeFileSync(ovnfsBinary, "#!/bin/sh\nexit 0\n");
-		chmodSync(ovnfsBinary, 0o755);
-		const missingBinary = join(fixture.cwd, "no-such-ovnfs");
-		const harness = await openSession(fixture, {}, { "ovnfs.path": missingBinary });
-		const section = "# Separate checkouts";
-		try {
-			const absent = await harness.turn("u8-ovnfs-absent", "first turn");
-			const absentPrompt = requestPrompt(absent.call);
-			assert.equal(
-				occurrences(absentPrompt, section),
-				0,
-				`an unavailable ovnfs command must render no checkout guidance (found ${occurrences(absentPrompt, section)})`,
-			);
+await scenario("u8-ovnfs-checkout-guidance", async fixture => {
+	const ovnfsBinary = join(fixture.cwd, "ovnfs-fixture");
+	writeFileSync(ovnfsBinary, "#!/bin/sh\nexit 0\n");
+	chmodSync(ovnfsBinary, 0o755);
+	const missingBinary = join(fixture.cwd, "no-such-ovnfs");
+	const harness = await openSession(fixture, {}, { "ovnfs.path": missingBinary });
+	const section = "# Separate checkouts";
+	try {
+		const absent = await harness.turn("u8-ovnfs-absent", "first turn");
+		const absentPrompt = requestPrompt(absent.call);
+		assert.equal(
+			occurrences(absentPrompt, section),
+			0,
+			`an unavailable ovnfs command must render no checkout guidance (found ${occurrences(absentPrompt, section)})`,
+		);
 
-			const added = await harness.measure("u8-ovnfs-present", async () => {
-				taskSettings.cfgOvnfsPath.override(harness.settings, ovnfsBinary);
-			});
-			assert.equal(added, 1, `ovnfs becoming available must rebuild the prompt exactly once (got ${added})`);
-			const present = await harness.turn("u8-ovnfs-present-turn", "second turn");
-			const presentPrompt = requestPrompt(present.call);
-			assert.equal(occurrences(presentPrompt, section), 1, "the checkout guidance must render exactly once while ovnfs is available");
-			assert.ok(
-				presentPrompt.includes(`${ovnfsBinary} new --name`),
-				"the checkout guidance must name the configured ovnfs command",
-			);
+		const added = await harness.measure("u8-ovnfs-present", async () => {
+			taskSettings.cfgOvnfsPath.override(harness.settings, ovnfsBinary);
+		});
+		assert.equal(added, 1, `ovnfs becoming available must rebuild the prompt exactly once (got ${added})`);
+		const present = await harness.turn("u8-ovnfs-present-turn", "second turn");
+		const presentPrompt = requestPrompt(present.call);
+		assert.equal(occurrences(presentPrompt, section), 1, "the checkout guidance must render exactly once while ovnfs is available");
+		assert.ok(
+			presentPrompt.includes(`${ovnfsBinary} new --name`),
+			"the checkout guidance must name the configured ovnfs command",
+		);
 
-			const stable = await harness.turn("u8-ovnfs-stable", "third turn");
-			assert.equal(
-				stable.rebuilds,
-				present.rebuilds,
-				`a further turn must not add a rebuild (${present.rebuilds} -> ${stable.rebuilds})`,
-			);
-			assert.equal(occurrences(requestPrompt(stable.call), section), 1, "the guidance must stay a single block");
+		const stable = await harness.turn("u8-ovnfs-stable", "third turn");
+		assert.equal(
+			stable.rebuilds,
+			present.rebuilds,
+			`a further turn must not add a rebuild (${present.rebuilds} -> ${stable.rebuilds})`,
+		);
+		assert.equal(occurrences(requestPrompt(stable.call), section), 1, "the guidance must stay a single block");
 
-			const removed = await harness.measure("u8-ovnfs-absent-again", async () => {
-				taskSettings.cfgOvnfsPath.override(harness.settings, missingBinary);
-			});
-			assert.equal(removed, 1, `ovnfs disappearing must rebuild the prompt exactly once (got ${removed})`);
-			const final = await harness.turn("u8-ovnfs-final", "fourth turn");
-			assert.equal(occurrences(requestPrompt(final.call), section), 0, "the guidance must vanish when ovnfs is unavailable");
-			return { added, removed };
-		} finally {
-			await harness.session.dispose();
-		}
-	});
+		const removed = await harness.measure("u8-ovnfs-absent-again", async () => {
+			taskSettings.cfgOvnfsPath.override(harness.settings, missingBinary);
+		});
+		assert.equal(removed, 1, `ovnfs disappearing must rebuild the prompt exactly once (got ${removed})`);
+		const final = await harness.turn("u8-ovnfs-final", "fourth turn");
+		assert.equal(occurrences(requestPrompt(final.call), section), 0, "the guidance must vanish when ovnfs is unavailable");
+		return { added, removed };
+	} finally {
+		await harness.session.dispose();
+	}
+});
 
-	// U8's second input is PATH: `ovnfs.path` unset means `ovnfs` on PATH, so
-	// the guidance must follow the binary appearing/disappearing. Sanitize PATH
-	// so the result does not depend on what the host happens to have installed.
-	await scenario("u8-ovnfs-path-fallback", async fixture => {
-		const section = "# Separate checkouts";
-		const originalPath = process.env.PATH ?? "";
-		const sanitizedPath = originalPath
-			.split(":")
-			.filter(dir => dir && !existsSync(join(dir, "ovnfs")))
-			.join(":");
-		const privateBin = join(fixture.cwd, "private-bin");
-		mkdirSync(privateBin, { recursive: true });
-		const ovnfsBinary = join(privateBin, "ovnfs");
-		writeFileSync(ovnfsBinary, "#!/bin/sh\nexit 0\n");
-		chmodSync(ovnfsBinary, 0o755);
+// U8's second input is PATH: `ovnfs.path` unset means `ovnfs` on PATH, so
+// the guidance must follow the binary appearing/disappearing. Sanitize PATH
+// so the result does not depend on what the host happens to have installed.
+await scenario("u8-ovnfs-path-fallback", async fixture => {
+	const section = "# Separate checkouts";
+	const originalPath = process.env.PATH ?? "";
+	const sanitizedPath = originalPath
+		.split(":")
+		.filter(dir => dir && !existsSync(join(dir, "ovnfs")))
+		.join(":");
+	const privateBin = join(fixture.cwd, "private-bin");
+	mkdirSync(privateBin, { recursive: true });
+	const ovnfsBinary = join(privateBin, "ovnfs");
+	writeFileSync(ovnfsBinary, "#!/bin/sh\nexit 0\n");
+	chmodSync(ovnfsBinary, 0o755);
+	process.env.PATH = sanitizedPath;
+	const harness = await openSession(fixture);
+	try {
+		const absent = await harness.turn("u8-path-absent", "first turn");
+		assert.equal(
+			occurrences(requestPrompt(absent.call), section),
+			0,
+			"PATH without ovnfs must render no checkout guidance",
+		);
+		process.env.PATH = `${privateBin}:${sanitizedPath}`;
+		const added = await harness.measure("u8-path-present", async () => {
+			await harness.session.refreshBaseSystemPrompt();
+		});
+		assert.equal(added, 1, `ovnfs appearing on PATH must rebuild the prompt exactly once (got ${added})`);
+		const presentPrompt = harness.promptText();
+		assert.equal(occurrences(presentPrompt, section), 1, "PATH ovnfs must render the guidance exactly once");
+		assert.ok(presentPrompt.includes("ovnfs new --name"), "the fallback command name must reach the guidance");
+		const present = await harness.turn("u8-path-present-turn", "second turn");
+		assert.equal(occurrences(requestPrompt(present.call), section), 1, "the request must carry the PATH guidance");
 		process.env.PATH = sanitizedPath;
-		const harness = await openSession(fixture);
-		try {
-			const absent = await harness.turn("u8-path-absent", "first turn");
-			assert.equal(
-				occurrences(requestPrompt(absent.call), section),
-				0,
-				"PATH without ovnfs must render no checkout guidance",
-			);
-			process.env.PATH = `${privateBin}:${sanitizedPath}`;
-			const added = await harness.measure("u8-path-present", async () => {
-				await harness.session.refreshBaseSystemPrompt();
-			});
-			assert.equal(added, 1, `ovnfs appearing on PATH must rebuild the prompt exactly once (got ${added})`);
-			const presentPrompt = harness.promptText();
-			assert.equal(occurrences(presentPrompt, section), 1, "PATH ovnfs must render the guidance exactly once");
-			assert.ok(presentPrompt.includes("ovnfs new --name"), "the fallback command name must reach the guidance");
-			const present = await harness.turn("u8-path-present-turn", "second turn");
-			assert.equal(occurrences(requestPrompt(present.call), section), 1, "the request must carry the PATH guidance");
-			process.env.PATH = sanitizedPath;
-			const removed = await harness.measure("u8-path-absent-again", async () => {
-				await harness.session.refreshBaseSystemPrompt();
-			});
-			assert.equal(removed, 1, `ovnfs leaving PATH must rebuild the prompt exactly once (got ${removed})`);
-			assert.equal(occurrences(harness.promptText(), section), 0, "the guidance must vanish with the binary");
-			return { added, removed };
-		} finally {
-			process.env.PATH = originalPath;
-			await harness.session.dispose();
-		}
-	});
-}
+		const removed = await harness.measure("u8-path-absent-again", async () => {
+			await harness.session.refreshBaseSystemPrompt();
+		});
+		assert.equal(removed, 1, `ovnfs leaving PATH must rebuild the prompt exactly once (got ${removed})`);
+		assert.equal(occurrences(harness.promptText(), section), 0, "the guidance must vanish with the binary");
+		return { added, removed };
+	} finally {
+		process.env.PATH = originalPath;
+		await harness.session.dispose();
+	}
+});
 
 const failed = results.filter(result => !result.ok);
 const report: ChildReport = { status: failed.length === 0 ? "PASS" : "FAIL", scenarios: results };
@@ -997,6 +985,6 @@ if (failed.length > 0) {
 	process.exit(1);
 }
 console.log(
-	`PASS prompt rebuild inputs (${plan.version}): ${results.length} scenarios — tool-description/intentField rebuild exactly once, midnight keeps system bytes, out:// · AGENTS.md exclusion · PI_INTENT_PROMPT${plan.since("18.18.0") ? " · ovnfs checkout guidance" : ""} each change the prompt once`,
+	`PASS prompt rebuild inputs (${plan.version}): ${results.length} scenarios — tool-description/intentField rebuild exactly once, midnight keeps system bytes, out:// · AGENTS.md exclusion · PI_INTENT_PROMPT · ovnfs checkout guidance each change the prompt once`,
 );
 process.exit(0);

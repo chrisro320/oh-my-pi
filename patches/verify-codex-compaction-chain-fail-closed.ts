@@ -654,188 +654,186 @@ try {
 		// socket settled and was reserved, a busy socket is refused (never sent over
 		// SSE, never torn down), a frame is refused unless it still names the socket
 		// that minted its chain, and socket departures reach the append state.
-		if (plan.since("18.18.0")) {
-			type TransportSession = {
-				connection?: { close(reason?: string): void };
-				canAppend: boolean;
-				lastClose?: { reason: string; generation: number };
-				lastPeerClose?: { reason: string; generation: number };
+		type TransportSession = {
+			connection?: { close(reason?: string): void };
+			canAppend: boolean;
+			lastClose?: { reason: string; generation: number };
+			lastPeerClose?: { reason: string; generation: number };
+		};
+		const sessionOf = (states: Map<string, ProviderSessionState>): TransportSession => {
+			const provider = states.get("openai-codex-responses") as unknown as { webSocketSessions: Map<string, TransportSession> };
+			const sessions = [...provider.webSocketSessions.values()];
+			assert.equal(sessions.length, 1, "each leg owns exactly one transport session");
+			return sessions[0]!;
+		};
+		const until = async (what: string, ready: () => boolean) => {
+			const deadline = Date.now() + 3000;
+			while (!ready()) {
+				assert.ok(Date.now() < deadline, `timed out waiting for ${what}`);
+				await Bun.sleep(5);
+			}
+		};
+		const seedLive = async (label: string) => {
+			mode = "success";
+			frames = [];
+			compactionSends = 0;
+			held = undefined;
+			const states = new Map<string, ProviderSessionState>();
+			let httpSends = 0;
+			const options = {
+				apiKey: "fixture-key", sessionId: `gate-${label}`, providerSessionState: states, preferWebsockets: true,
+				fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
 			};
-			const sessionOf = (states: Map<string, ProviderSessionState>): TransportSession => {
-				const provider = states.get("openai-codex-responses") as unknown as { webSocketSessions: Map<string, TransportSession> };
-				const sessions = [...provider.webSocketSessions.values()];
-				assert.equal(sessions.length, 1, "each leg owns exactly one transport session");
-				return sessions[0]!;
-			};
-			const until = async (what: string, ready: () => boolean) => {
-				const deadline = Date.now() + 3000;
-				while (!ready()) {
-					assert.ok(Date.now() < deadline, `timed out waiting for ${what}`);
-					await Bun.sleep(5);
-				}
-			};
-			const seedLive = async (label: string) => {
-				mode = "success";
-				frames = [];
-				compactionSends = 0;
-				held = undefined;
-				const states = new Map<string, ProviderSessionState>();
-				let httpSends = 0;
-				const options = {
-					apiKey: "fixture-key", sessionId: `gate-${label}`, providerSessionState: states, preferWebsockets: true,
-					fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
-				};
-				const context = { systemPrompt: ["fixture"], messages: [{ role: "user" as const, content: [{ type: "text" as const, text: "seed" }], timestamp: 1 }] };
-				const first = await ai.streamOpenAICodexResponses(model, context, options).result();
-				assert.equal(first.stopReason, "stop", first.errorMessage);
-				assert.equal(sessionOf(states).canAppend, true, `${label}: the seed turn must leave a live append baseline`);
-				return { states, options, context, first, httpSends: () => httpSends };
-			};
-			const compactionBody = {
-				model: bundled.id,
-				input: [...input, { type: "compaction_trigger" }],
-				store: false,
-				stream: true,
-			};
+			const context = { systemPrompt: ["fixture"], messages: [{ role: "user" as const, content: [{ type: "text" as const, text: "seed" }], timestamp: 1 }] };
+			const first = await ai.streamOpenAICodexResponses(model, context, options).result();
+			assert.equal(first.stopReason, "stop", first.errorMessage);
+			assert.equal(sessionOf(states).canAppend, true, `${label}: the seed turn must leave a live append baseline`);
+			return { states, options, context, first, httpSends: () => httpSends };
+		};
+		const compactionBody = {
+			model: bundled.id,
+			input: [...input, { type: "compaction_trigger" }],
+			store: false,
+			stream: true,
+		};
 
-			// A request owns the socket mid-stream. The compaction lane must refuse
-			// (it has no SSE to fall back to) and must leave that request alone.
-			{
-				const live = await seedLive("busy");
-				mode = "hold";
-				const before = frames.length;
-				const ordinary = ai.streamOpenAICodexResponses(model, {
-					...live.context,
-					messages: [...live.context.messages, live.first, { role: "user" as const, content: "second", timestamp: 2 }],
-				}, live.options).result();
-				await until("the parked ordinary request", () => held !== undefined);
-				assert.equal(frames.length, before + 1, "busy: only the ordinary request may be on the wire");
-				const heldSocket = frames.at(-1)!.socket;
-				await assert.rejects(
-					core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
-						...live.options, timeoutMs: 2000, retryWait: async () => {},
-					}),
-					(error: Error) => {
-						assert.ok(error instanceof ai.CodexCompactionChainLostError, `busy: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
-						assert.match(error.message, /websocket busy/, "busy: the refusal must name the busy socket");
-						return true;
-					},
-				);
-				assert.equal(compactionSends, 0, "busy: the refused compaction must not reach the wire");
-				assert.equal(frames.length, before + 1, "busy: the refused compaction must not write a frame");
-				assert.equal(live.httpSends(), 0, "busy: no SSE replay may escape");
-				// The parked request's socket must be intact: it completes normally.
-				mode = "success";
-				complete(held!, false);
-				const done = await ordinary;
-				assert.equal(done.stopReason, "stop", `busy: the parked request must survive the refusal (${done.errorMessage})`);
-				assert.equal(frames.at(-1)!.socket, heldSocket);
-				// Once the socket is free again the very same baseline chains.
-				await core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
+		// A request owns the socket mid-stream. The compaction lane must refuse
+		// (it has no SSE to fall back to) and must leave that request alone.
+		{
+			const live = await seedLive("busy");
+			mode = "hold";
+			const before = frames.length;
+			const ordinary = ai.streamOpenAICodexResponses(model, {
+				...live.context,
+				messages: [...live.context.messages, live.first, { role: "user" as const, content: "second", timestamp: 2 }],
+			}, live.options).result();
+			await until("the parked ordinary request", () => held !== undefined);
+			assert.equal(frames.length, before + 1, "busy: only the ordinary request may be on the wire");
+			const heldSocket = frames.at(-1)!.socket;
+			await assert.rejects(
+				core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
 					...live.options, timeoutMs: 2000, retryWait: async () => {},
-				});
-				const chained = frames.at(-1)!;
-				assert.equal(compactionSends, 1, "busy: the released socket takes exactly one compaction");
-				assert.equal(chained.socket, heldSocket, "busy: compaction must stay on the socket that minted the chain");
-				assert.ok(chained.body.previous_response_id, "busy: the released socket must chain");
-				assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "busy: a live chain needs no recovery");
-				for (const state of live.states.values()) state.close();
-			}
+				}),
+				(error: Error) => {
+					assert.ok(error instanceof ai.CodexCompactionChainLostError, `busy: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
+					assert.match(error.message, /websocket busy/, "busy: the refusal must name the busy socket");
+					return true;
+				},
+			);
+			assert.equal(compactionSends, 0, "busy: the refused compaction must not reach the wire");
+			assert.equal(frames.length, before + 1, "busy: the refused compaction must not write a frame");
+			assert.equal(live.httpSends(), 0, "busy: no SSE replay may escape");
+			// The parked request's socket must be intact: it completes normally.
+			mode = "success";
+			complete(held!, false);
+			const done = await ordinary;
+			assert.equal(done.stopReason, "stop", `busy: the parked request must survive the refusal (${done.errorMessage})`);
+			assert.equal(frames.at(-1)!.socket, heldSocket);
+			// Once the socket is free again the very same baseline chains.
+			await core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
+				...live.options, timeoutMs: 2000, retryWait: async () => {},
+			});
+			const chained = frames.at(-1)!;
+			assert.equal(compactionSends, 1, "busy: the released socket takes exactly one compaction");
+			assert.equal(chained.socket, heldSocket, "busy: compaction must stay on the socket that minted the chain");
+			assert.ok(chained.body.previous_response_id, "busy: the released socket must chain");
+			assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "busy: a live chain needs no recovery");
+			for (const state of live.states.values()) state.close();
+		}
 
-			// The frame is bound to the socket that minted its chain: a hook that
-			// drops `previous_response_id`, or a socket replaced after the decision,
-			// is refused before anything reaches the wire.
-			for (const hook of ["drops-chain", "replaces-socket"] as const) {
-				const live = await seedLive(hook);
-				const before = frames.length;
-				const onPayload = hook === "drops-chain"
-					? (payload: Record<string, unknown>) => {
-							const { previous_response_id: _dropped, ...rest } = payload;
-							return { ...rest, input: compactionBody.input };
-						}
-					: () => {
-							sessionOf(live.states).connection!.close("gate-replaced");
-							return undefined;
-						};
+		// The frame is bound to the socket that minted its chain: a hook that
+		// drops `previous_response_id`, or a socket replaced after the decision,
+		// is refused before anything reaches the wire.
+		for (const hook of ["drops-chain", "replaces-socket"] as const) {
+			const live = await seedLive(hook);
+			const before = frames.length;
+			const onPayload = hook === "drops-chain"
+				? (payload: Record<string, unknown>) => {
+						const { previous_response_id: _dropped, ...rest } = payload;
+						return { ...rest, input: compactionBody.input };
+					}
+				: () => {
+						sessionOf(live.states).connection!.close("gate-replaced");
+						return undefined;
+					};
+			await assert.rejects(
+				ai.openCodexCompactionEventStream(model, compactionBody, {
+					apiKey: live.options.apiKey, sessionId: live.options.sessionId,
+					providerSessionState: live.states, preferWebsockets: true, fetch: live.options.fetch, onPayload,
+				}),
+				(error: Error) => {
+					assert.ok(error instanceof ai.CodexCompactionChainLostError, `${hook}: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
+					assert.equal((error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable, true, `${hook}: the host may recover the chain`);
+					return true;
+				},
+			);
+			assert.equal(frames.length, before, `${hook}: no compaction frame may be written`);
+			assert.equal(compactionSends, 0, `${hook}: nothing may reach the wire`);
+			assert.equal(live.httpSends(), 0, `${hook}: no SSE replay`);
+			for (const state of live.states.values()) state.close();
+		}
+
+		// Socket departures reach the append state: a peer close is recorded as
+		// the peer's, our own close() is not mistaken for it, and either way the
+		// dead socket stops advertising its chain.
+		{
+			const live = await seedLive("peer-close");
+			const session = sessionOf(live.states);
+			sockets.get(frames.at(-1)!.socket)!.close(1001, "idle-evicted");
+			await until("the peer close", () => session.lastPeerClose !== undefined);
+			assert.match(session.lastPeerClose!.reason, /^peer \(code 1001: idle-evicted\)$/, "peer close: the peer's own code and text");
+			assert.equal(session.lastClose?.reason, session.lastPeerClose!.reason, "peer close: the socket's close cause is the peer's");
+			assert.equal(session.lastClose?.generation, session.lastPeerClose!.generation, "peer close: one socket, one generation");
+			assert.equal(session.canAppend, false, "peer close: a dead socket must not advertise its chain");
+			for (const state of live.states.values()) state.close();
+		}
+		{
+			const live = await seedLive("local-close");
+			const session = sessionOf(live.states);
+			session.connection!.close("gate-local");
+			assert.equal(session.lastClose?.reason, "gate-local", "local close: our own reason");
+			assert.equal(session.lastPeerClose, undefined, "local close: never reported as the peer's");
+			assert.equal(session.canAppend, false, "local close: the chain dies with its socket");
+			await Bun.sleep(100);
+			assert.equal(session.lastPeerClose, undefined, "local close: the peer's close echo is not a peer departure");
+			for (const state of live.states.values()) state.close();
+		}
+
+		// R7: failures are attempt-local. No sticky websocket disable may survive
+		// in the published source or types, and a session whose opens all failed
+		// must try its socket again on the next compaction.
+		for (const file of [`${AI_ROOT}/src/providers/openai-codex-responses.ts`, `${AI_ROOT}/dist/types/providers/openai-codex-responses.d.ts`]) {
+			assert.equal(readFileSync(file, "utf8").includes("disableWebsocket"), false, `${file}: a sticky websocket disable would silently re-enable SSE fallback`);
+		}
+		{
+			mode = "success";
+			frames = [];
+			compactionSends = 0;
+			upgradeAttempts = 0;
+			pendingRefusals = Number.POSITIVE_INFINITY;
+			const states = new Map<string, ProviderSessionState>();
+			const options = {
+				apiKey: "fixture-key", sessionId: "gate-attempt-local", providerSessionState: states, preferWebsockets: true,
+				fetch: async () => { throw new Error("No HTTP replay allowed"); },
+			};
+			try {
 				await assert.rejects(
-					ai.openCodexCompactionEventStream(model, compactionBody, {
-						apiKey: live.options.apiKey, sessionId: live.options.sessionId,
-						providerSessionState: live.states, preferWebsockets: true, fetch: live.options.fetch, onPayload,
-					}),
-					(error: Error) => {
-						assert.ok(error instanceof ai.CodexCompactionChainLostError, `${hook}: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
-						assert.equal((error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable, true, `${hook}: the host may recover the chain`);
-						return true;
-					},
-				);
-				assert.equal(frames.length, before, `${hook}: no compaction frame may be written`);
-				assert.equal(compactionSends, 0, `${hook}: nothing may reach the wire`);
-				assert.equal(live.httpSends(), 0, `${hook}: no SSE replay`);
-				for (const state of live.states.values()) state.close();
-			}
-
-			// Socket departures reach the append state: a peer close is recorded as
-			// the peer's, our own close() is not mistaken for it, and either way the
-			// dead socket stops advertising its chain.
-			{
-				const live = await seedLive("peer-close");
-				const session = sessionOf(live.states);
-				sockets.get(frames.at(-1)!.socket)!.close(1001, "idle-evicted");
-				await until("the peer close", () => session.lastPeerClose !== undefined);
-				assert.match(session.lastPeerClose!.reason, /^peer \(code 1001: idle-evicted\)$/, "peer close: the peer's own code and text");
-				assert.equal(session.lastClose?.reason, session.lastPeerClose!.reason, "peer close: the socket's close cause is the peer's");
-				assert.equal(session.lastClose?.generation, session.lastPeerClose!.generation, "peer close: one socket, one generation");
-				assert.equal(session.canAppend, false, "peer close: a dead socket must not advertise its chain");
-				for (const state of live.states.values()) state.close();
-			}
-			{
-				const live = await seedLive("local-close");
-				const session = sessionOf(live.states);
-				session.connection!.close("gate-local");
-				assert.equal(session.lastClose?.reason, "gate-local", "local close: our own reason");
-				assert.equal(session.lastPeerClose, undefined, "local close: never reported as the peer's");
-				assert.equal(session.canAppend, false, "local close: the chain dies with its socket");
-				await Bun.sleep(100);
-				assert.equal(session.lastPeerClose, undefined, "local close: the peer's close echo is not a peer departure");
-				for (const state of live.states.values()) state.close();
-			}
-
-			// R7: failures are attempt-local. No sticky websocket disable may survive
-			// in the published source or types, and a session whose opens all failed
-			// must try its socket again on the next compaction.
-			for (const file of [`${AI_ROOT}/src/providers/openai-codex-responses.ts`, `${AI_ROOT}/dist/types/providers/openai-codex-responses.d.ts`]) {
-				assert.equal(readFileSync(file, "utf8").includes("disableWebsocket"), false, `${file}: a sticky websocket disable would silently re-enable SSE fallback`);
-			}
-			{
-				mode = "success";
-				frames = [];
-				compactionSends = 0;
-				upgradeAttempts = 0;
-				pendingRefusals = Number.POSITIVE_INFINITY;
-				const states = new Map<string, ProviderSessionState>();
-				const options = {
-					apiKey: "fixture-key", sessionId: "gate-attempt-local", providerSessionState: states, preferWebsockets: true,
-					fetch: async () => { throw new Error("No HTTP replay allowed"); },
-				};
-				try {
-					await assert.rejects(
-						core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
-							...options, timeoutMs: 2000, retryWait: async () => {},
-						}),
-						ai.CodexCompactionChainLostError,
-					);
-					assert.ok(upgradeAttempts > 0, "attempt-local: the failing opens must have been tried");
-					pendingRefusals = 0;
-					upgradeAttempts = 0;
-					const recovered = await core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
+					core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
 						...options, timeoutMs: 2000, retryWait: async () => {},
-					});
-					assert.equal(recovered.compactionItem.encrypted_content, "fixture-summary");
-					assert.ok(upgradeAttempts >= 1, "attempt-local: a failed open must not disable the socket for later compactions");
-				} finally {
-					pendingRefusals = 0;
-					for (const state of states.values()) state.close();
-				}
+					}),
+					ai.CodexCompactionChainLostError,
+				);
+				assert.ok(upgradeAttempts > 0, "attempt-local: the failing opens must have been tried");
+				pendingRefusals = 0;
+				upgradeAttempts = 0;
+				const recovered = await core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
+					...options, timeoutMs: 2000, retryWait: async () => {},
+				});
+				assert.equal(recovered.compactionItem.encrypted_content, "fixture-summary");
+				assert.ok(upgradeAttempts >= 1, "attempt-local: a failed open must not disable the socket for later compactions");
+			} finally {
+				pendingRefusals = 0;
+				for (const state of states.values()) state.close();
 			}
 		}
 		// 0096: a transient websocket OPEN failure in the chain-only compaction lane

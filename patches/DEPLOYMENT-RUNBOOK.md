@@ -12,29 +12,39 @@ Selected acquisition uses the already-audited independent npm closure with a pin
 
 After source/ledger integration, run the target oracle and selected gates, actual private sandbox smoke, declaration consumer and applicable human-approved Tern/native checks. The sandbox entry point is `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --runtime <candidate> --ledger <repository-patches> --out <fresh-json>`; its harness runs every command in a loopback-only network namespace (`bwrap --unshare-net`), because native Anthropic's `node:https` transport bypasses fetch stubs. Repository/sandbox acceptance for candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` is complete (oracle, 57/57 gates in one run, smoke, OAuth controller controls, companions, physical native checks, Tern queue/steer/image/resume; `/compact` and parked-agent wake accepted via their gates by user decision). Synthetic `verify-release-publication.py --version 18.12.6` passes only its temporary HOME fault/admission fixture; it does not install or publish a real release.
 
+## 18.18.6 + 0104 installation (published 2026-11-10; activates on next start)
+
+Release `18.18.6-cf759d13f662-dbfc6005-4749ab1c` (candidate tree `cf759d13…`) adds `0104-omp-rollover-answered-request` to the 18.18.6 plan. Runtime: an ovnfs checkout of the previous release runtime with the 0104 files (new prompt file mode 0644 so the digest matches the candidate). Installed with `prepare` → installed-path smoke (same script, 6/6, receipt `/var/tmp/omp-0104/install-smoke-cf759d13.json`) → `verify-native-overlay.py` PASS → `verify-rollover-answered-request.ts` 11/11 on the installed runtime → `publish` (rollback target: release `18.18.6-2f8258e8a984-677bb127-9391d3a2`). Running sessions stay on the previous release; close them and their brokers, then start omp. Code-only rollback is allowed only before that first start.
+
+## 18.18.6 installation (published 2026-11-10; activates on first start)
+
+Release `18.18.6-2f8258e8a984-677bb127-9391d3a2` (candidate tree `2f8258e8…`) was installed with `prepare` → installed-path smoke (`.tasks/stage/11-09-omp-18186-upgrade/research/m8-smoke/run-sandbox-smoke.py --release <release>`, 6/6, receipt `.tasks/stage/11-09-omp-18186-upgrade/research/install-smoke-18.18.6.json`) → `verify-native-overlay.py` PASS → `publish`. The private runtime copy needed permissions normalized to 0644/0755 before its digest matched the candidate, and the rebuilt native pair was installed into it. No companion change was required. Before the first start: close every omp session and its broker, run `/var/tmp/omp-18186-install/backup-before-first-start.sh`, then start omp. After that start `production_admission_started` is true and a code-only rollback to 18.18.0 is refused.
+
 ## 18.18.0 installation (published 2026-11-08; activates on first start)
 
 Release `18.18.0-f74e59923d16-3b2faede-9ac28b0e` (candidate tree `f74e5992…`) was installed with `prepare` → installed-path smoke (`.tasks/stage/11-07-omp-18180-implement/research/m8-smoke/run-sandbox-smoke.py --release <release>`, 6/6, receipt `.tasks/stage/11-07-omp-version-agnostic-gates/research/install-smoke-18.18.0.json`) → `verify-native-overlay.py` PASS → `publish`. The live `payload-archive.ts` companion was replaced first (apply-mode prerequisite). M9 physical Escape acceptance was skipped by the user as a one-release exception (`DECISIONS.md`, 2026-11-08). Before the first start: close every omp session and its broker, run `/var/tmp/omp-18180-install/backup-before-first-start.sh` (sqlite `.backup` of `agent.db` and `models.db` plus `integrity_check`), then start omp. After that start `production_admission_started` is true and a code-only rollback to 18.16.0 is refused.
 
-## 18.16.0 installation (installed release; active)
+## 18.16.0 installation (retired 2026-11-09; historical)
 
-Exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424` is installed as release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` and active since 2026-11-03 (`production_admission_started:true`), so a code-only rollback is refused. It was installed with the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6 (`$TASK/research/m15-installed-smoke-18.16.0.json`).
+18.16.0 is no longer a registered release: `patches/.18.16.0-families/` and `patches/verify-extensions-load-18160.ts` now live under `patches/.retired/11-09-pre-18.18.6-plans/`, and any `OMP_PATCH_VERSION=18.16.0` invocation is refused (exit 2, "retired"). The facts below stay as installation history; the read-only chain queries point at the stable release, 18.18.0.
 
-Read-only chain queries (`patches/versions.json` is the only place a supported version is declared; the plan is the selected release's `.<version>-families/plan.tsv`). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts:
+Exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424` was installed as release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` and was active from 2026-11-03 until 2026-11-08; the installed and active release today is `18.18.0-f74e59923d16-3b2faede-9ac28b0e` (`omp --version` → `omp/18.18.0 (installed; ready for a new process)`), so code-only rollback is decided against that release, not against 18.16.0. The 18.16.0 release directory stays on disk as a historical immutable release. It was installed with the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6 (`$TASK/research/m15-installed-smoke-18.16.0.json`).
+
+Read-only chain queries (`patches/versions.json` is the only place a supported version is declared; the plan is the selected release's `.<version>-families/plan.tsv`). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts; the 18.18.0 receipts are in the archived 11-07 tasks:
 
 ```sh
-OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan           # 26 rows
-OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-capabilities   # 62 capabilities
-OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates          # 71 gates
-python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache <archives>
-bash patches/verify-patch-family-rollups.sh --version 18.16.0
+OMP_PATCH_VERSION=18.18.0 bash patches/apply.sh --print-plan           # 24 rows
+OMP_PATCH_VERSION=18.18.0 bash patches/apply.sh --print-capabilities   # 59 capabilities
+OMP_PATCH_VERSION=18.18.0 bash patches/apply.sh --print-gates          # 70 gates
+OMP_PATCH_TGZ_CACHE=<archives> OMP_PATCH_VERSION=18.18.0 bash patches/apply.sh --verify-rollups
+OMP_PATCH_VERSION=18.18.6 bash patches/apply.sh --print-plan           # 23 rows (repo candidate b261966f…, not installed)
 ```
 
 `--check` is not acceptance — it peels the final tree. Acceptance is the zero-fuzz replay, reverse-to-pristine and an identical second replay against pinned archives (`$TASK/research/m9-oracle-18.16.0.json`, candidate tree `35567dd8…`, pristine `9f88de1a…`).
 
 Gate batch: see "Running the gates" below (`patches/run-gates.py`, parallel, one offline bwrap per gate). Every controller-selected gate must be `PASS` and the runtime digest must be unchanged before and after (`$TASK/research/m10-full-batch-18.16.0.json` is the historical serial receipt). Freeze the ledger bytes first; a batch with a moving gate proves nothing.
 
-Native overlay: the 18.16.0 recipe is `patches/native/18.16.0/overlay.json` (same single Rust patch, `cargo --release --locked`, both target CPUs). Build with `bash patches/native/build-natives.sh <work> <out> patches/native/18.16.0/overlay.json`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/native/18.16.0/overlay.json` must PASS. Never overwrite the 18.12.6 recipe.
+Native overlay: the 18.16.0 recipe is `patches/.retired/11-09-pre-18.18.6-plans/native/18.16.0/overlay.json` (retired with the release in the 18.18.6 rotation; still one Rust patch, `cargo --release --locked`, both target CPUs). Build with `bash patches/native/build-natives.sh <work> <out> patches/.retired/11-09-pre-18.18.6-plans/native/18.16.0/overlay.json`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/.retired/11-09-pre-18.18.6-plans/native/18.16.0/overlay.json` must PASS. Never overwrite the 18.12.6 recipe.
 
 Smoke (repository/sandbox only, synthetic model, no provider proof):
 
@@ -315,7 +325,7 @@ OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --check
 
 ## 7. 回退（歷史 direct-global 流程）
 
-本節的 `bun add -g` 流程只適用於 historical direct-global 安裝。當前 immutable installation 為 18.16.0，已於 2026-11-03 admission（`production_admission_started:true`），因此 code-only rollback（`publish-release.py rollback --release <physical-release>`）已被拒絕；18.12.6 的凍結 release 僅作歷史保存。18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
+本節的 `bun add -g` 流程只適用於 historical direct-global 安裝。當前 immutable installation 為 18.18.0（release `18.18.0-f74e59923d16-3b2faede-9ac28b0e`，2026-11-08 publish），因此 code-only rollback（`publish-release.py rollback --release <physical-release>`）已被拒絕；18.16.0（已於 2026-11-09 隨版本輪替退役，計畫移至 `patches/.retired/11-09-pre-18.18.6-plans/`）與 18.12.6 的凍結 release 僅作歷史保存。18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
 
 ```sh
 OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --revert

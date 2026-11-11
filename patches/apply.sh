@@ -205,12 +205,13 @@ if [[ "$MODE" == "print-families" ]]; then
 fi
 
 
-# From 18.18.0 the durability proof traces fsync calls, so the toolchain must be
-# able to trace a child before anything is touched. The proof runs only from a
-# real apply (the gate suite is apply-only), so --check and --revert must stay
-# usable on a box without working ptrace. Refuse with the prerequisite named
-# instead of letting the gate fail later (or skip).
-if omp_since "$OMP_PATCH_VERSION" 18.18.0 && [[ "$MODE" == "apply" ]]; then
+# Both registered plans (18.18.0 and newer) trace fsync calls in the durability
+# proof, so the toolchain must be able to trace a child before anything is
+# touched. The proof runs only from a real apply (the gate suite is apply-only),
+# so --check and --revert must stay usable on a box without working ptrace.
+# Refuse with the prerequisite named instead of letting the gate fail later
+# (or skip).
+if [[ "$MODE" == "apply" ]]; then
 	if ! command -v strace >/dev/null 2>&1; then
 		echo "${OMP_PATCH_VERSION} plan requires strace: the fsync durability leg must not skip; install strace and re-run" >&2
 		exit 2
@@ -491,6 +492,22 @@ _omp_no_gate() { # capability, reason: a plan capability with no observable beha
 	NO_GATE[$1]="$2"
 }
 
+# A no-gate declaration is bookkeeping for a capability, not for one plan: the
+# other registered release may still carry it (the newest plan can retire a
+# capability the stable one keeps), and its gate map must stay valid too.
+# Stale only when no registered plan carries the capability.
+_omp_capability_in_registered_plan() { # capability
+	local version plan
+	for version in $(omp_supported_text | tr ',' ' '); do
+		plan="${HERE}/.${version}-families/plan.tsv"
+		[[ -f "$plan" ]] || continue
+		if cut -f3 "$plan" | tr ',' '\n' | grep -qx -- "$1"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 _omp_check_coverage() {
 	local cap bad=0
 	for cap in $(printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort); do
@@ -501,18 +518,18 @@ _omp_check_coverage() {
 		fi
 	done
 	for cap in $(printf '%s\n' "${!NO_GATE[@]}" | sort); do
-		if [[ -z "${PLAN_CAPABILITIES[$cap]:-}" ]]; then
-			echo "_omp_no_gate ${cap}: not a capability of the ${OMP_PATCH_VERSION} plan (stale declaration)" >&2; bad=1
+		if [[ -z "${PLAN_CAPABILITIES[$cap]:-}" ]] && ! _omp_capability_in_registered_plan "$cap"; then
+			echo "_omp_no_gate ${cap}: not a capability of any registered plan (stale declaration)" >&2; bad=1
 		fi
 	done
 	[[ "$bad" == 0 ]] || exit 2
 }
 
 _omp_run_gates() {
-	_omp_gate "" verify-antigravity-envelope.ts "" "0014|0054"
+	_omp_gate "0014|0054" verify-antigravity-envelope.ts
 	_omp_gate "" verify-prefix-cache-compaction.ts "" "0035|0088"
 	_omp_gate "" verify-provider-image-budget.ts "" "0036|0044|0057"
-	_omp_gate "" verify-snapcompact-model-billing.ts "" 0052
+	_omp_gate 0052 verify-snapcompact-model-billing.ts
 	# 0025 is retired from the newer plan by user decision (upgrade plan
 	# §2.1/§10); the capability decides, so only plans that carry it select the gate.
 	_omp_gate 0025 verify-ollama-cloud-usage.ts
@@ -529,7 +546,7 @@ _omp_run_gates() {
 	_omp_gate "" verify-supersede-warm-prefix-guard.ts "" 0046
 	_omp_gate "0045|0062" verify-snapcompact-frame-reprice.ts "" 0052
 	_omp_gate 0050 verify-session-history-preview.ts
-	_omp_gate "" verify-native-dialog-lifecycle.ts
+	_omp_gate "" verify-native-dialog-lifecycle.ts "" 0103
 	_omp_gate "" verify-manual-compaction-direct.ts
 	_omp_gate "" verify-context-notes-append-projection.ts
 	_omp_gate 0060 verify-devin-idle-cascade-pin.ts
@@ -560,11 +577,9 @@ _omp_run_gates() {
 	_omp_gate 0093 verify-model-effort-resume.ts tree
 	_omp_gate 0094 verify-anthropic-thinking-drop-resume.ts
 	_omp_gate 0095 verify-context-persist-audit.ts
-	# Q10: the 18.16.0 plan drops the 0082 HTML-export hunks and this gate's tree
-	# pin ends before it; the rebase that selects the gate again is 18.18.0.
-	if omp_since "$OMP_PATCH_VERSION" 18.18.0; then
-		_omp_gate 0082 verify-user-display-text-queue.ts
-	fi
+	# Q10: the retired 18.16.0 plan dropped the 0082 HTML-export hunks; 18.18.0
+	# carries them again, so every registered plan selects this gate.
+	_omp_gate 0082 verify-user-display-text-queue.ts
 	_omp_gate 0085 verify-rejected-prepared-draft-restore.ts
 	_omp_gate 0088 verify-compaction-cache-liveness.ts "" 0089
 	_omp_gate 0090 verify-oauth-durable-refresh.ts tree
@@ -585,35 +600,30 @@ _omp_run_gates() {
 	_omp_gate 0101 verify-subagent-warm-revival-prompt.ts
 	# Capability-selected: a plan that does not carry 0102 never runs its gate.
 	_omp_gate 0102 verify-computer-control-confirm-deadline.ts
-	# M7: the companion extensions load through the real host, receive
-	# before_agent_start prompt/revive and shut down cleanly. Plans older than
-	# 18.18.0 only: the gate pins that tree and needs 0082's prepare_user_input/display text.
-	if ! omp_since "$OMP_PATCH_VERSION" 18.18.0; then
-		_omp_gate 0082 verify-extensions-load-18160.ts
-	fi
-	# M7 (from 18.18.0): the live companion set (symlinks followed) against the
-	# rebased chain, including the four patch-dependency hooks.
-	if omp_since "$OMP_PATCH_VERSION" 18.18.0; then
-		_omp_gate 0082 verify-extensions-load-18180.ts companions
-		# D5: Codex text.verbosity default low and its medium override, over a
-		# loopback-only transport.
-		_omp_gate "" verify-codex-text-verbosity.ts
-		# R1: the usage pipeline's missing behaviour gate (0037 turn gate and
-		# provider scoping, 0026 identity/alias invalidation, 0030 key collapse).
-		_omp_gate 0037 verify-usage-statusline-gate.ts "" "0026|0030"
-		# R1: 0031 provider scope across the worker boundary, over a real RpcLink
-		# pair plus the pinned worker pool.
-		_omp_gate 0031 verify-usage-thread-providers.ts
-		# O1: journal-injected controls must not shorten the live compaction prefix.
-		_omp_gate 0035 verify-compaction-live-chain-midnight.ts
-		# R5: OAuth stays main-owned when a session is placed in a worker.
-		_omp_gate 0090 verify-oauth-worker-single-owner.ts tree
-		# M5: logical history diagnostics and summary/warm thread isolation.
-		_omp_gate 0074 verify-anthropic-threads-cache-shape.ts tree
-		_omp_gate 0088 verify-anthropic-threads-warm-compaction-isolation.ts tree
-		# M6: real worker realm runtime contracts and shipped placement default.
-		_omp_gate "" verify-worker-runtime.ts slow
-	fi
+	# Capability-selected: a plan that does not carry 0104 never runs its gate.
+	_omp_gate 0104 verify-rollover-answered-request.ts
+	# M7: the live companion set (symlinks followed) against the rebased chain,
+	# including the four patch-dependency hooks. Every registered plan ships them
+	# (the older 18.16.0 tree's own gate retired with its plan).
+	_omp_gate 0082 verify-extensions-load-18180.ts companions
+	# D5: Codex text.verbosity default low and its medium override, over a
+	# loopback-only transport.
+	_omp_gate "" verify-codex-text-verbosity.ts
+	# R1: the usage pipeline's missing behaviour gate (0037 turn gate and
+	# provider scoping, 0026 identity/alias invalidation, 0030 key collapse).
+	_omp_gate 0037 verify-usage-statusline-gate.ts "" "0026|0030"
+	# R1: 0031 provider scope across the worker boundary, over a real RpcLink
+	# pair plus the pinned worker pool.
+	_omp_gate 0031 verify-usage-thread-providers.ts
+	# O1: journal-injected controls must not shorten the live compaction prefix.
+	_omp_gate 0035 verify-compaction-live-chain-midnight.ts
+	# R5: OAuth stays main-owned when a session is placed in a worker.
+	_omp_gate 0090 verify-oauth-worker-single-owner.ts tree
+	# M5: logical history diagnostics and summary/warm thread isolation.
+	_omp_gate 0074 verify-anthropic-threads-cache-shape.ts tree
+	_omp_gate 0088 verify-anthropic-threads-warm-compaction-isolation.ts tree
+	# M6: real worker realm runtime contracts and shipped placement default.
+	_omp_gate "" verify-worker-runtime.ts slow
 	# M9b unowned P0/P1 proofs.
 	_omp_gate "" verify-tools-wire.ts
 	_omp_gate "" verify-remote-compaction-target-key.ts
@@ -628,12 +638,6 @@ _omp_run_gates() {
 	# later) are declared, never silently left without a gate.
 	_omp_no_gate 0071 "Devin request-dump debug switch: diagnostic only, no behaviour a user observes"
 	_omp_no_gate 0017 "upstream-adopted (native replay is warm upstream): no local patch, no local behaviour to pin"
-	if ! omp_since "$OMP_PATCH_VERSION" 18.18.0; then
-		_omp_no_gate 0026 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
-		_omp_no_gate 0030 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
-		_omp_no_gate 0031 "its proof (verify-usage-thread-providers) is registered only for the newer plan"
-		_omp_no_gate 0037 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
-	fi
 }
 
 if [[ "$MODE" == print-gates ]]; then
@@ -688,12 +692,12 @@ cleanup_sandbox() {
 }
 trap cleanup_sandbox EXIT
 
-# 18.18.0 apply stages the live companion set before the first patch lands, so a
-# retired, missing or live-agent-linked companion refuses without touching the
-# install. The gate later loads exactly this fixture. The live payload-archive
-# companion is hashed only after staging resolved it into the fixture: the check
-# never opens a path under the live tree.
-if omp_since "$OMP_PATCH_VERSION" 18.18.0 && [[ "$MODE" == "apply" ]]; then
+# Both registered plans stage the live companion set before the first patch
+# lands, so a retired, missing or live-agent-linked companion refuses without
+# touching the install. The gate later loads exactly this fixture. The live
+# payload-archive companion is hashed only after staging resolved it into the
+# fixture: the check never opens a path under the live tree.
+if [[ "$MODE" == "apply" ]]; then
 	COMPANION_ROOT="$(mktemp -d)"
 	COMPANION_STAGED="${COMPANION_ROOT}/extensions"
 	_omp_stage_companions "$COMPANION_STAGED"

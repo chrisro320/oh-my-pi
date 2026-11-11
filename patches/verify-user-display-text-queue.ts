@@ -21,8 +21,11 @@
 //      a synchronous reschedule livelock that starves this process's timers.
 //      Negative control: keeping `if (this.isStreaming) return false;` inside
 //      `#canContinueQueuedMessages` (the 18.12.6 rebase defect) times out.
+//   4. history listing: scanLines recovers the original past the bounded head;
+//      an explicitly empty original in either the head or recovered gap remains
+//      authoritative. Each case has a child-only source mutation control.
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolvePlan } from "./version-registry.ts";
@@ -36,12 +39,95 @@ assert.ok(AI_ROOT, "OMP_PATCH_VERIFY_AI_ROOT must point to the pi-ai tree under 
 assert.ok(NM, "OMP_PATCH_VERIFY_NM must point to the @oh-my-pi node_modules tree under test");
 
 const plan = resolvePlan({ gate: "verify-user-display-text-queue", roots: [AGENT_ROOT] });
-// removeQueuedMessage (the queue identity leg) exists from 18.4.4 and the queue
-// policy split from 18.10.1, but the user-turn date/cwd reminder pinned below
-// landed in 18.18.0: an older tree has no arm for this gate, so it fails closed
-// here instead of silently skipping legs. Every registered plan has all three.
-assert.ok(plan.since("18.18.0"), `user display text gate: ${plan.version} predates the user-turn date/cwd reminder`);
+// Queue identity, queue-policy split and the date/cwd reminder are common to
+// every registered plan. The later scan-recovery cases are selected separately.
 const ABORT_DRAIN_MARKER = "QUEUE_ABORT_DRAIN_OK";
+const LISTING_MARKER = "DISPLAY_LISTING_OK";
+const listingCase = process.env.OMP_VERIFY_DISPLAY_LISTING_CASE;
+if (listingCase) {
+	assert.ok(plan.since("18.18.2"), "scan recovery is selected by the registered plan");
+	const listingFile = join(AGENT_ROOT, "src/session/session-listing.ts");
+	const mutation = process.env.OMP_VERIFY_DISPLAY_LISTING_MUTATION === "1";
+	const controls: Record<string, [string, string][]> = {
+		"prefix-empty": [
+			["let needPrompt = !firstPromptResolved && !firstMessage;", "let needPrompt = !firstMessage;"],
+			["if (text || message.displayText !== undefined) {", "if (text) {"],
+		],
+		"recovered-original": [[
+			'userDisplayText(message, " ").slice(0, SESSION_LIST_PREFIX_BYTES)',
+			'textContent(message.content, " ").slice(0, SESSION_LIST_PREFIX_BYTES)',
+		]],
+		"recovered-empty": [[
+			'if (!firstPromptResolved) firstMessage ||= extractFirstDisplayMessageFromPrefix(content) ?? "";',
+			'firstMessage ||= extractFirstDisplayMessageFromPrefix(content) ?? "";',
+		]],
+	};
+	assert.ok(controls[listingCase], `unknown listing case: ${listingCase}`);
+	let loads = 0;
+	// The runner mounts this gate's runtime read-only. Transform only the selected
+	// module in this child, so the fault cannot leak into another case or gate.
+	Bun.plugin({
+		name: "display-listing-control",
+		setup(build) {
+			build.onLoad({ filter: /\/session\/session-listing\.ts$/ }, args => {
+				assert.equal(args.path, listingFile, "the control must load the selected runtime");
+				loads++;
+				let contents = readFileSync(args.path, "utf8");
+				if (mutation) {
+					for (const [from, to] of controls[listingCase]) {
+						assert.equal(contents.split(from).length, 2, "a listing mutation must match exactly once");
+						contents = contents.replace(from, to);
+					}
+				}
+				return { contents, loader: "ts" };
+			});
+		},
+	});
+	const { SessionManager: ListingManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+	const fixtures = join(tmpdir(), `omp-display-listing-${process.pid}`);
+	const sessionDir = join(fixtures, "sessions");
+	mkdirSync(sessionDir, { recursive: true });
+	try {
+		const user = (content: string, displayText?: string) => ({
+			type: "message", message: { role: "user", content, ...(displayText === undefined ? {} : { displayText }) },
+		});
+		const padding = (length: number) => ({ type: "custom", customType: "padding", data: "x".repeat(length) });
+		const assistant = { type: "message", message: { role: "assistant", content: "SCAN-REPLY" } };
+		const first = listingCase === "prefix-empty" ? user("HIDDEN-MODEL-TEXT", "") : undefined;
+		const entries = [
+			{ type: "session", id: listingCase, cwd: fixtures, timestamp: "2026-11-01T00:00:00.000Z" },
+			...(first ? [first] : [{
+				type: "message", message: { role: "developer", content: "PREFIX-FALLBACK" },
+			}]),
+			padding(6_000),
+			user("LATER-MODEL-TEXT", listingCase === "recovered-original" ? "原始提問" : undefined),
+			...(listingCase === "recovered-empty" ? [user("NOT-THE-FIRST-ORIGINAL", "later original")] : []),
+			assistant,
+			padding(40_000),
+		];
+		if (listingCase === "recovered-empty") {
+			entries[3] = user("LATER-MODEL-TEXT", "");
+		}
+		const body = `${entries.map(entry => JSON.stringify(entry)).join("\n")}\n`;
+		assert.ok(body.indexOf("LATER-MODEL-TEXT") > 4_096, "the recovered prompt must lie beyond the head");
+		assert.ok(body.indexOf("SCAN-REPLY") < body.length - 32_768, "the assistant must lie before the tail");
+		writeFileSync(join(sessionDir, `${listingCase}.jsonl`), body);
+		const rows = await ListingManager.list(fixtures, sessionDir);
+		assert.equal(rows.length, 1, "the public listing returns the synthetic session");
+		assert.equal(loads, 1, "the selected listing source must be loaded once");
+		assert.equal(rows[0].assistantTurns, 1, "the gap scan must retain upstream assistant recovery");
+		const expected = listingCase === "recovered-original" ? "原始提問" : "(no messages)";
+		assert.equal(rows[0].firstMessage, expected, `displayText authority: ${listingCase}`);
+		assert.ok(!rows[0].allMessagesText.includes("HIDDEN-MODEL-TEXT"), "listing search never exposes the hidden prefix model text");
+		if (listingCase === "recovered-original") {
+			assert.ok(!rows[0].allMessagesText.includes("LATER-MODEL-TEXT"), "recovered search text stays original");
+		}
+		console.log(`${LISTING_MARKER} ${listingCase}`);
+	} finally {
+		rmSync(fixtures, { recursive: true, force: true });
+	}
+	process.exit(0);
+}
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -245,6 +331,31 @@ try {
 		child.exitCode === 0 && output.includes(ABORT_DRAIN_MARKER),
 		`queued steer after abort must drain once (exit ${child.exitCode}, signal ${child.signalCode ?? "none"}; a timeout is the drain livelock): ${output.slice(-600)}`,
 	);
+	if (plan.since("18.18.2")) {
+		for (const name of ["prefix-empty", "recovered-original", "recovered-empty"]) {
+			const run = (mutation: boolean) => Bun.spawnSync([process.execPath, import.meta.path], {
+				env: {
+					...process.env,
+					OMP_VERIFY_DISPLAY_LISTING_CASE: name,
+					OMP_VERIFY_DISPLAY_LISTING_MUTATION: mutation ? "1" : "0",
+				},
+				timeout: 30_000,
+				killSignal: "SIGKILL",
+			});
+			const positive = run(false);
+			const output = positive.stdout.toString() + positive.stderr.toString();
+			assert.equal(positive.exitCode, 0, `listing ${name} must pass: ${output}`);
+			assert.ok(output.includes(`${LISTING_MARKER} ${name}`), "the listing case must finish its assertions");
+			const negative = run(true);
+			const detail = negative.stdout.toString() + negative.stderr.toString();
+			assert.notEqual(negative.exitCode, 0, `listing ${name} mutation must fail`);
+			assert.ok(
+				detail.includes(`displayText authority: ${name}`),
+				`listing ${name} must fail at display authority, not a loader or fixture error: ${detail}`,
+			);
+			console.log(`PASS listing ${name}; MUTATION RED exit ${negative.exitCode}\n${detail}`);
+		}
+	}
 	console.log(`verify-user-display-text-queue: PASS (${plan.version}, queue identity, abort drain)`);
 } finally {
 	rmSync(root, { recursive: true, force: true });

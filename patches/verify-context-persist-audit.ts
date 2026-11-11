@@ -22,6 +22,34 @@ const EXTENSION = process.env.OMP_CONTEXT_AUDIT_EXTENSION ?? join(import.meta.di
 // or plan version fails closed instead of reaching the extension runtime.
 resolvePlan({ gate: "verify-context-persist-audit", roots: [AGENT_ROOT] });
 
+const mutation = process.env.OMP_CONTEXT_AUDIT_MUTATION;
+const controls: Record<string, { file: string; from: string; to: string; red: string }> = {
+	"session-drop-purpose": {
+		file: "src/session/agent-session.ts",
+		from: 'this.#transformContext(messages, signal, "side-request")',
+		to: "this.#transformContext(messages, signal)",
+		red: "side conversion must identify its context event as side-request",
+	},
+	"sdk-drop-purpose": {
+		file: "src/sdk.ts",
+		from: "extensionRunner.emitContext(messages, signal, purpose)",
+		to: "extensionRunner.emitContext(messages, signal)",
+		red: "side conversion must identify its context event as side-request",
+	},
+	"event-drop-purpose": {
+		file: "src/extensibility/extensions/runner.ts",
+		from: '{ type: "context", messages: currentMessages, purpose }',
+		to: '{ type: "context", messages: currentMessages, purpose: "turn" }',
+		red: "side conversion must identify its context event as side-request",
+	},
+	"turn-marked-side": {
+		file: "src/extensibility/extensions/runner.ts",
+		from: '{ type: "context", messages: currentMessages, purpose }',
+		to: '{ type: "context", messages: currentMessages, purpose: "side-request" }',
+		red: "a main turn must identify its context event as turn",
+	},
+};
+
 // HOME must be private before process startup; Bun caches os.homedir().
 if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
 	const home = mkdtempSync(join(tmpdir(), "cpa-home-"));
@@ -38,12 +66,50 @@ if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
 		process.stdout.write(result.stdout);
 		process.stderr.write(result.stderr);
 		assert.equal(result.exitCode, 0, "isolated context audit gate failed");
+		for (const [name, control] of Object.entries(controls)) {
+			const childHome = mkdtempSync(join(home, `control-${name}-`));
+			const child = Bun.spawnSync([process.execPath, import.meta.path], {
+				env: {
+					...process.env, HOME: childHome, TMPDIR: childHome,
+					XDG_CONFIG_HOME: join(childHome, "config"), XDG_CACHE_HOME: join(childHome, "cache"),
+					XDG_DATA_HOME: join(childHome, "data"), XDG_STATE_HOME: join(childHome, "state"), XDG_RUNTIME_DIR: join(childHome, "run"),
+					OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
+					OMP_CONTEXT_AUDIT_EXTENSION: EXTENSION, OMP_CONTEXT_AUDIT_CHILD: "1", OMP_CONTEXT_AUDIT_MUTATION: name,
+				},
+				timeout: 30_000,
+			});
+			const text = child.stdout.toString() + child.stderr.toString();
+			assert.notEqual(child.exitCode, 0, `${name}: context-purpose mutation must turn red`);
+			assert.ok(text.includes(`CONTEXT_PURPOSE_CONTROL_LOADED ${name}`) && text.includes("AssertionError") && text.includes(control.red), `${name}: mutation must fail at its behavioral assertion:\n${text}`);
+			console.log(`PASS context-purpose mutation ${name}: child exit ${child.exitCode}; ${control.red}`);
+		}
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
 	process.exit(0);
 }
 globalThis.fetch = (() => { throw new Error("Network forbidden in context audit gate"); }) as typeof fetch;
+
+let mutationsLoaded = 0;
+if (mutation) {
+	const control = controls[mutation];
+	assert.ok(control, `unknown context-purpose mutation ${mutation}`);
+	Bun.plugin({
+		name: "context-request-purpose-control",
+		setup(build) {
+			build.onLoad({ filter: /\/(?:sdk|session\/agent-session|extensibility\/extensions\/runner)\.ts$/ }, args => {
+				let contents = readFileSync(args.path, "utf8");
+				if (args.path === join(AGENT_ROOT, control.file)) {
+					assert.equal(contents.split(control.from).length, 2, `${mutation}: unique mutation anchor`);
+					contents = contents.replace(control.from, control.to);
+					mutationsLoaded++;
+					console.log(`CONTEXT_PURPOSE_CONTROL_LOADED ${mutation}`);
+				}
+				return { contents, loader: "ts" };
+			});
+		},
+	});
+}
 
 const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
@@ -321,6 +387,7 @@ const reminder = retryReminder();
 		const authStorage = await discoverAuthStorage(agentDir);
 		authStorage.keys.setRuntime("audit-fixture", "offline-fixture");
 		const modelRegistry = new ModelRegistry(authStorage, join(agentDir, "models.yml"), { settings });
+		const purposes: string[] = [];
 		const extension = (pi: ExtensionAPI) => {
 			pi.registerProvider("audit-fixture", {
 				api: "audit-fixture", baseUrl: "http://127.0.0.1:1/never", apiKey: "offline-fixture",
@@ -336,6 +403,7 @@ const reminder = retryReminder();
 					}).stream(model, context, options);
 				},
 			});
+			pi.on("context", event => { purposes.push(event.purpose); });
 			contextPersistAudit(pi);
 		};
 		const manager = SessionManager.create(cwd, join(dirname(bound), "sessions"));
@@ -349,17 +417,21 @@ const reminder = retryReminder();
 		assert.ok(session);
 		await session.prompt("Persist this complete turn.");
 		await manager.flush();
+		assert.deepEqual(purposes, ["turn"], "a main turn must identify its context event as turn");
 		const logPath = join(homedir(), ".omp", "agent", "context-persist-audit.log");
 		const readAudit = () => readFileSync(logPath, "utf8");
 		const beforeLog = readAudit();
 		const originalMessages = session.agent.state.messages.slice();
+		const beforeSideEvents = purposes.length;
 		await session.convertMessagesToLlm(originalMessages.slice(0, 1));
+		assert.deepEqual(purposes.slice(beforeSideEvents), ["side-request"], "side conversion must identify its context event as side-request");
 		assert.equal(readAudit(), beforeLog, "compaction-prefix conversion must not emit a false persistence warning");
 		assert.deepEqual(session.agent.state.messages, originalMessages, "side conversion must not truncate live history");
 		session.agent.replaceMessages(originalMessages.slice(0, 1));
 		await session.agent.continue();
 		const records = readAudit().trim().split("\n").map(line => JSON.parse(line) as { status: string });
 		assert.equal(records.at(-1)?.status, "file-extra", "a genuinely truncated main turn must still be detected");
+		assert.equal(purposes.at(-1), "turn", "a truncated main turn still reaches the audit as turn work");
 		await settings.flush();
 
 		authStorage.close();
@@ -370,4 +442,5 @@ const reminder = retryReminder();
 }
 
 rmSync(dirname(bound), { recursive: true, force: true });
+if (mutation) assert.equal(mutationsLoaded, 1, "the selected context-purpose mutation must load");
 console.log("context-persist-audit: ALL PASS");

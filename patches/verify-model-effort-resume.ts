@@ -1,5 +1,5 @@
-// Verify 0093: model identity and effort survive a fresh-process resume — both
-// halves of the capability, one gate.
+// Verify 0093: model identity and effort survive a fresh-process resume, with
+// selection receipts committed before observers can capture history.
 //
 //   prompt-effort     The frozen system-prompt model label must be an
 //                     effort-independent model identity, so a fresh-process
@@ -26,19 +26,23 @@
 //                     model/effort/provenance receipt must commit with its
 //                     model.
 //
+//   thinking-set      A native composer effort selection drives the real editor,
+//                     input controller and session. Its synchronous observer
+//                     must already see the committed thinking receipt; the next
+//                     request and a fresh-process resume must use that effort.
+//                     Moving the append after the event must turn this leg red.
+//
 // Each leg drives fresh OS processes with a private HOME and an offline runtime
 // provider (`fetch` throws, so no provider call is possible), and each writes its
 // probe inside the tree under test because Bun resolves imports relative to the
 // script. A leg runs in its own child process so one leg's state cannot mask the
 // other's; every leg must pass.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolvePlan } from "./version-registry.ts";
 
-const LEGS = ["prompt-effort", "model-selection"] as const;
-type Leg = (typeof LEGS)[number];
 const LEG_ENV = "OMP_MODEL_EFFORT_RESUME_LEG";
 
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
@@ -48,6 +52,8 @@ assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree 
 // committed model-selection receipt; unregistered trees fail closed rather than
 // skipping the behavioral assertions.
 const plan = resolvePlan({ gate: "verify-model-effort-resume", roots: [AGENT_ROOT] });
+const LEGS = ["prompt-effort", ...(plan.since("18.18.6") ? ["thinking-set" as const] : []), "model-selection"] as const;
+type Leg = (typeof LEGS)[number];
 
 const requestedLeg = process.env[LEG_ENV];
 if (!requestedLeg) {
@@ -59,7 +65,7 @@ if (!requestedLeg) {
 		process.stderr.write(child.stderr);
 		assert.equal(child.exitCode, 0, `model-effort resume leg "${leg}" failed (exit ${child.exitCode})`);
 	}
-	console.log(`PASS model-effort resume (${plan.version}): ${LEGS.join(", ")} both halves pass`);
+	console.log(`PASS model-effort resume (${plan.version}): ${LEGS.join(", ")} all legs pass`);
 	process.exit(0);
 }
 assert.ok(
@@ -436,6 +442,7 @@ const fallbackCase = mode === "fallback" || mode === "resume-fallback";
 const autoCase = mode === "auto";
 const startupCase = mode === "startup-auto";
 const unverifiedCase = mode === "unverified" || mode === "resume-unverified";
+const thinkingSetCase = mode === "thinking-set";
 const fixtureProvider = unverifiedCase ? "meta" : "resume-fixture";
 globalThis.fetch = () => { throw new Error("Network forbidden in model-selection resume gate"); };
 // Imports must follow the package root selected at runtime, not the live install.
@@ -488,7 +495,48 @@ const { session } = await createAgentSession({ cwd, agentDir, authStorage, model
  skipPythonPreflight: true, toolNames: ["read"], extensions: [extension],
  thinkingLevel: isResume || startupCase ? undefined : "low",
 });
-if (unverifiedCase && !isResume) {
+if (thinkingSetCase) {
+ await session.prompt("before composer selection");
+ const tuiRoot = dirname(root) + "/pi-tui";
+ const { CustomEditor } = await import(tuiRoot + "/src/prompt/custom-editor.ts");
+ const { ensureThemeSync, getEditorTheme } = await import(tuiRoot + "/src/theme/theme.ts");
+ const { InputController } = await import(root + "/src/modes/controllers/input-controller.ts");
+ ensureThemeSync();
+ const editor = new CustomEditor(getEditorTheme());
+ let invalidations = 0, borderUpdates = 0;
+ // Only terminal I/O is a sink: the editor, controller binding and session are real.
+ const controller = new InputController({
+  editor, session, viewSession: session, settings,
+  ui: { addInputListener() {}, addStartListener() {} },
+  keybindings: { getKeys: () => [] },
+  dictationSpaceHold: () => undefined,
+  statusLine: { invalidate: () => { invalidations++; } },
+  updateEditorBorderColor: () => { borderUpdates++; },
+ });
+ controller.setupKeyHandlers();
+ const observed = [];
+ const unsubscribe = session.subscribe(event => {
+  if (event.type !== "thinking_level_changed") return;
+  const entry = manager.getBranch().filter(entry => entry.type === "thinking_level_change").at(-1);
+  observed.push({ level: event.thinkingLevel, live: session.thinkingLevel,
+   configured: session.configuredThinkingLevel(),
+   receipt: entry && { thinkingLevel: entry.thinkingLevel, configured: entry.configured },
+  });
+ });
+ try {
+  editor.handleNativeEvent({ type: "action", act: "thinking.set", value: "high" });
+ } finally {
+  unsubscribe();
+ }
+ // Assert outside the observer: AgentSession deliberately isolates listener exceptions.
+ assert.deepEqual(observed, [{ level: "high", live: "high", configured: "high",
+  receipt: { thinkingLevel: "high", configured: "high" },
+ }], "thinking.set must commit its receipt before notifying observers");
+ assert.equal(invalidations, 1, "the real controller must invalidate its effort display");
+ assert.equal(borderUpdates, 1, "the real controller must refresh the editor border");
+ await session.prompt("after composer selection");
+}
+else if (unverifiedCase && !isResume) {
  const unknown = modelRegistry.find(fixtureProvider, "unknown");
  assert.ok(unknown?.thinking?.unverified, "real catalog policy must produce an unverified fixture");
  session.setThinkingLevel("auto");
@@ -620,8 +668,8 @@ type Capture = {
 		thinkingChanges: { thinkingLevel?: string | null; configured?: string | null }[];
 	};
 };
-function run(mode: string, file = ""): Capture {
-	const result = Bun.spawnSync([process.execPath, probe, mode, file], {
+function spawnProbe(mode: string, file = "") {
+	return Bun.spawnSync([process.execPath, probe, mode, file], {
 		env: {
 			PATH: process.env.PATH, HOME: lab, TMPDIR: lab,
 			XDG_CONFIG_HOME: join(lab, "config"), XDG_CACHE_HOME: join(lab, "cache"),
@@ -629,11 +677,43 @@ function run(mode: string, file = ""): Capture {
 			PROBE_AGENT_ROOT: root, PROBE_LAB: lab,
 		},
 	});
+}
+function run(mode: string, file = ""): Capture {
+	const result = spawnProbe(mode, file);
 	assert.equal(result.exitCode, 0, `${mode}: ${result.stdout}\n${result.stderr}`);
 	return JSON.parse(result.stdout.toString().trim().split("\n").at(-1)!);
 }
 try {
 	writeFileSync(probe, source);
+	if (leg === "thinking-set") {
+		const live = run("thinking-set");
+		assert.deepEqual(live.calls, [{ model: "astra", effort: "low" }, { model: "astra", effort: "high" }],
+			"the native effort selection must reach the very next provider request");
+		const resumed = run("resume-thinking-set", live.file);
+		assert.deepEqual(resumed.calls, [{ model: "astra", effort: "high" }],
+			"a fresh process must restore the native composer's committed effort");
+		console.log("PASS thinking.set -> observer receipt -> next request -> fresh-process resume: high");
+
+		// The controller gives tree-writing gates a private runtime. Restore even
+		// when the control fails, so no subsequent leg sees the broken source.
+		const controlsFile = join(root, "src/session/model-controls.ts");
+		const original = readFileSync(controlsFile, "utf8");
+		const append = "this.#host.sessionManager.appendThinkingLevelChange(effectiveLevel, effectiveLevel);";
+		const emit = 'this.#host.emit({ type: "thinking_level_changed", thinkingLevel: effectiveLevel });';
+		assert.equal(original.split(append).length, 2, "the commit-order mutation must match exactly one append");
+		assert.equal(original.split(emit).length, 2, "the commit-order mutation must match exactly one event");
+		try {
+			writeFileSync(controlsFile, original.replace(append, "").replace(emit, `${emit}\n\t\t\t${append}`));
+			const mutant = spawnProbe("thinking-set");
+			const detail = mutant.stdout.toString() + mutant.stderr.toString();
+			assert.notEqual(mutant.exitCode, 0, "append-after-emit must fail the thinking.set leg");
+			assert.match(detail, /thinking\.set must commit its receipt before notifying observers/,
+				"the control must fail at the observer receipt, not a loader or fixture error");
+			console.log(`MUTATION RED thinking.set append-after-emit: exit ${mutant.exitCode}\n${detail}`);
+		} finally {
+			writeFileSync(controlsFile, original);
+		}
+	} else {
 	for (const mode of ["live", "fork"]) {
 		const live = run(mode);
 		assert.equal(live.calls[0]?.model, "astra", `${mode}: history starts on model A`);
@@ -685,16 +765,15 @@ try {
 	assert.deepEqual(resumedAuto.calls, [{ model: "sol", effort: "high" }],
 		"auto precedence: resume restores the committed high effort receipt");
 	console.log("PASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto");
-	if (plan.since("18.18.0")) {
-		// Startup shares the switch rule: 18.18.0's own `newSessionThinkingLevel` lets the inherited global
-		// `auto` outrank the starting model's default, so the family carries the target default instead.
-		const startup = run("startup-auto");
-		assert.deepEqual(startup.startup, { configured: "high", effort: "high" },
-			"startup: the starting model's defaultLevel must beat the inherited global auto selector");
-		assert.deepEqual(startup.calls, [{ model: "sol", effort: "high" }],
-			"startup: the default effort must reach the actual provider");
-		console.log("PASS startup configured auto -> starting model defaultLevel: high on the wire");
-	}
+	// Startup shares the switch rule: `newSessionThinkingLevel` lets the inherited
+	// global `auto` outrank the starting model's default, so the family carries
+	// the target default instead.
+	const startup = run("startup-auto");
+	assert.deepEqual(startup.startup, { configured: "high", effort: "high" },
+		"startup: the starting model's defaultLevel must beat the inherited global auto selector");
+	assert.deepEqual(startup.calls, [{ model: "sol", effort: "high" }],
+		"startup: the default effort must reach the actual provider");
+	console.log("PASS startup configured auto -> starting model defaultLevel: high on the wire");
 	const unverified = run("unverified");
 	assert.deepEqual(unverified.calls, [{ model: "unknown" }, { model: "unknown", effort: "low" }],
 		"target unverified reasoning stays unset until an actual explicit selection");
@@ -702,6 +781,7 @@ try {
 	assert.deepEqual(resumedUnverified.calls, [{ model: "unknown", effort: "low" }],
 		"fresh-process resume retains the explicit unverified effort");
 	console.log("PASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high");
+	}
 } finally {
 	rmSync(probe, { force: true });
 	rmSync(lab, { recursive: true, force: true });

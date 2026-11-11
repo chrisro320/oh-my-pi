@@ -61,8 +61,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const GATE = "verify-oauth-worker-single-owner";
-const plan = resolvePlan({ gate: GATE, roots: [AI_ROOT, AGENT_ROOT] });
-assert.ok(plan.since("18.18.0"), `${GATE}: this worker-mode gate starts on the newest release; tree is ${plan.version}`);
+// Worker placement and its OAuth ownership ship in every registered plan; the
+// registry check fails closed on a tree it does not list.
+resolvePlan({ gate: GATE, roots: [AI_ROOT, AGENT_ROOT] });
 for (const [name, root] of [
 	["OMP_PATCH_VERIFY_AGENT_ROOT", AGENT_ROOT],
 	["OMP_PATCH_VERIFY_AI_ROOT", AI_ROOT],

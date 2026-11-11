@@ -34,6 +34,10 @@
 //          `xd://` devices; the revival must keep the same device catalogue, the same
 //          persisted `session_init.mountedTools` and the same tool wire list (a demotion to
 //          top-level tools reorders the tool block and loses the prefix cache).
+//   i/j.  a real public task call selects an exact per-call model (with a literal
+//          thinking-like suffix in its id) and low effort. Warm and cold lifecycle
+//          revival must send the same persisted system/tool prefix on that exact
+//          model and effort, even after the parent's prompt settings change.
 // Mutation controls (candidate runs only) copy the runtime, break one part of the warm
 // reviver and require the named scenario to fail.
 //
@@ -81,6 +85,7 @@ const agentVersion = plan.version;
 const requestedResultPath = process.env.OMP_WARM_REVIVAL_RESULT;
 const skipMutations = process.env.OMP_WARM_REVIVAL_NO_MUTATIONS === "1";
 const privateProcess = process.env.OMP_WARM_REVIVAL_BOOT === "1";
+const selectedScenarios = process.env.OMP_WARM_REVIVAL_SCENARIOS?.split(",");
 const privateHome = mkdtempSync(join(tmpdir(), "omp-warm-revival-home-"));
 for (const key of Object.keys(process.env)) {
 	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
@@ -94,7 +99,7 @@ Object.assign(process.env, {
 });
 process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
 
-const childEnv = (agentRoot: string, resultPath: string | undefined): Record<string, string> => ({
+const childEnv = (agentRoot: string, resultPath: string | undefined, scenarios?: string[]): Record<string, string> => ({
 	...(process.env as Record<string, string>),
 	OMP_WARM_REVIVAL_BOOT: "1",
 	OMP_NM: NM,
@@ -102,6 +107,7 @@ const childEnv = (agentRoot: string, resultPath: string | undefined): Record<str
 	OMP_PATCH_VERIFY_AGENT_ROOT: agentRoot,
 	OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 	...(resultPath ? { OMP_WARM_REVIVAL_RESULT: resultPath } : {}),
+	...(scenarios ? { OMP_WARM_REVIVAL_SCENARIOS: scenarios.join(",") } : {}),
 });
 
 /** A throwaway runtime whose pi-coding-agent is a private copy; every sibling package is shared by symlink. */
@@ -125,6 +131,8 @@ interface MutationControl {
 	name: string;
 	/** Scenarios that must report a failure on the broken copy. */
 	mustFail: string[];
+	/** Relative selected-runtime module; warm executor by default. */
+	file?: string;
 	from: string;
 	to: string;
 }
@@ -140,7 +148,7 @@ const MUTATIONS: MutationControl[] = [
 		name: "drop the persisted systemPrompt override",
 		// Target snapshots the roster and restores yield items, so only a live default-prompt
 		// input that changed while parked separates persisted bytes from a re-render.
-		mustFail: ["g-default-prompt-setting-drift"],
+		mustFail: ["g-default-prompt-setting-drift", ...(plan.since("18.18.4") ? ["i-public-per-call-warm"] : [])],
 		from: OVERRIDE_LINE,
 		to: "",
 	},
@@ -177,6 +185,27 @@ const MUTATIONS: MutationControl[] = [
 		from: "const revivedToolNames = revived.getEnabledToolNames();",
 		to: "const revivedToolNames = revived.getEnabledToolNames();\n\t\t\tawait revived.setActiveToolPresentation(revivedToolNames, []);",
 	},
+	...(plan.since("18.18.4") ? [
+		{
+			name: "drop persisted per-call model identity",
+			mustFail: ["j-public-per-call-cold"],
+			from: "perCallModelIdentity: formatModelStringWithRouting(session.model!),",
+			to: "perCallModelIdentity: undefined,",
+		},
+		{
+			name: "drop persisted per-call thinking level",
+			mustFail: ["j-public-per-call-cold"],
+			from: "perCallThinkingLevel: session.configuredThinkingLevel() ?? null,",
+			to: "perCallThinkingLevel: undefined,",
+		},
+		{
+			name: "re-render the cold per-call prompt",
+			mustFail: ["j-public-per-call-cold"],
+			file: "src/task/persisted-revive.ts",
+			from: "systemPrompt: () => [...init.systemPrompt],",
+			to: "systemPrompt: undefined,",
+		},
+	] : []),
 ];
 
 if (!privateProcess) {
@@ -192,16 +221,18 @@ if (!privateProcess) {
 			const dir = mkdtempSync(join(tmpdir(), "omp-warm-revival-mutant-"));
 			try {
 				const copy = copyRuntimeWithAgent(dir);
-				const executor = join(copy, "src/task/executor.ts");
+				const executor = join(copy, mutation.file ?? "src/task/executor.ts");
 				const source = readFileSync(executor, "utf8");
 				if (!source.includes(mutation.from)) throw new Error(`mutation fixture does not match the runtime: ${mutation.name}`);
 				writeFileSync(executor, source.replace(mutation.from, mutation.to));
 				const resultPath = join(dir, "result.json");
-				const run = Bun.spawnSync([process.execPath, import.meta.path], { env: childEnv(copy, resultPath) });
+				const run = Bun.spawnSync([process.execPath, import.meta.path], { env: childEnv(copy, resultPath, mutation.mustFail) });
 				const report = existsSync(resultPath) ? JSON.parse(readFileSync(resultPath, "utf8")) : { scenarios: [] };
 				const failedScenarios: string[] = report.scenarios.filter((s: { ok: boolean }) => !s.ok).map((s: { name: string }) => s.name);
 				const rejected = run.exitCode !== 0 && mutation.mustFail.every(name => failedScenarios.includes(name));
 				controls.push({ name: mutation.name, rejected, failedScenarios, detail: `exit ${run.exitCode}` });
+				const failures = report.scenarios.filter((s: { ok: boolean }) => !s.ok).flatMap((s: { failures: string[] }) => s.failures);
+				if (failures.length) console.log(`  mutation red output: ${JSON.stringify(failures)}`);
 				console.log(`  ${rejected ? "ok  " : "FAIL"} mutation rejected: ${mutation.name} -> ${failedScenarios.join(",") || "none"}`);
 				if (!rejected) exitCode = 1;
 			} finally {
@@ -225,7 +256,8 @@ globalThis.fetch = (() => {
 // Every specifier below is genuinely runtime-selected: OMP_NM / the root variables decide
 // which tree is exercised, so a static import cannot express it. This mirrors the other
 // real-SDK gates in this directory.
-const { discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
 const { AgentRegistry } = await import(`${AGENT_ROOT}/src/registry/agent-registry.ts`);
@@ -262,6 +294,7 @@ const drift = (left: unknown, right: unknown): string => {
 };
 
 interface MockCallRecord {
+	options?: { reasoning?: string };
 	context: {
 		systemPrompt?: string[];
 		tools?: Array<{ name: string; description?: string; parameters?: unknown }>;
@@ -270,6 +303,7 @@ interface MockCallRecord {
 }
 interface AgentSessionLike {
 	agent: { state: { systemPrompt: string[] } };
+	model?: { provider: string; id: string };
 	prompt(text: string): Promise<unknown>;
 	waitForIdle(): Promise<void>;
 	getWorkPoolYieldItems(): ReadonlyArray<{ id: string; index: number }>;
@@ -312,7 +346,7 @@ interface Env {
 	settings: unknown;
 	authStorage: unknown;
 	modelRegistry: unknown;
-	model: { calls: MockCallRecord[] };
+	model: { id: string; provider: string; calls: MockCallRecord[] };
 	/** Set once the pre-park phase is over: every later request is answered with plain text. */
 	settled: { value: boolean };
 	nextIndex: number;
@@ -336,8 +370,10 @@ async function makeEnv(name: string): Promise<Env> {
 		"task.structured": true,
 	});
 	const settled = { value: false };
+	const perCall = name === "i-public-per-call-warm" || name === "j-public-per-call-cold";
 	const model = createMockModel({
-		id: MOCK_ID,
+		id: perCall ? "warm-worker:high" : MOCK_ID,
+		reasoning: perCall,
 		handler: (context: MockCallRecord["context"]) => {
 			if (settled.value) return { content: ["acknowledged"] };
 			const yieldTool = context.tools?.find(tool => tool.name === "yield");
@@ -346,9 +382,11 @@ async function makeEnv(name: string): Promise<Env> {
 			return { content: [{ type: "toolCall", name: "yield", arguments: args }] };
 		},
 	});
+	if (perCall) Object.assign(model, { thinking: { mode: "effort", efforts: ["low", "medium", "high"] } });
 	const modelRegistry = new ModelRegistry(authStorage);
 	modelRegistry.getAvailable = () => [model];
-	modelRegistry.find = (provider: string, id: string) => (provider === model.provider && id === MOCK_ID ? model : undefined);
+	modelRegistry.find = (provider: string, id: string) => (provider === model.provider && id === model.id ? model : undefined);
+	if (perCall) modelRegistry.getAll = () => [model];
 	modelRegistry.hasConfiguredAuth = () => true;
 	return { cwd, artifactsDir, settings, authStorage, modelRegistry, model, settled, nextIndex: 0 };
 }
@@ -449,6 +487,7 @@ async function scenario(
 	name: string,
 	body: (env: Env, record: (observations: Record<string, unknown>) => void) => Promise<void>,
 ): Promise<void> {
+	if (selectedScenarios && !selectedScenarios.includes(name)) return;
 	const failures: string[] = [];
 	let observations: Record<string, unknown> = {};
 	try {
@@ -733,6 +772,82 @@ await scenario("f-info-pooled-followup-after-revival", async (env, record) => {
 			},
 		}),
 	);
+}
+
+// These legs deliberately use the mounted public task tool, not hand-built
+// perCallModelGrants. The cold fixture installs the CLI host's real reviver factory;
+// release/register simulates the disk-only parked ref after its warm owner died.
+if (plan.since("18.18.4")) {
+	for (const cold of [false, true]) {
+		await scenario(cold ? "j-public-per-call-cold" : "i-public-per-call-warm", async (env, record) => {
+			const { cfgIncludeModelInPrompt } = await import(`${AGENT_ROOT}/src/session/settings.ts`);
+			const { cfgTaskBatch, cfgTaskEager, cfgTaskPerCallModel } = await import(`${AGENT_ROOT}/src/task/settings.ts`);
+			const { cfgAsyncEnabled } = await import(`${AGENT_ROOT}/src/tools/settings.ts`);
+			cfgAsyncEnabled.override(env.settings, false);
+			cfgTaskBatch.override(env.settings, false);
+			cfgTaskPerCallModel.override(env.settings, "on");
+			const { session: parent } = await createAgentSession({
+				cwd: env.cwd, agentDir: join(env.cwd, "agent"), settings: env.settings,
+				authStorage: env.authStorage, modelRegistry: env.modelRegistry, model: env.model,
+				sessionManager: SessionManager.create(env.cwd, join(env.cwd, "sessions")),
+				skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+				toolNames: ["read", "write", "task"], disableExtensionDiscovery: true,
+				enableLsp: false, enableMCP: false, skipPythonPreflight: true,
+				preloadedCustomToolPaths: [], autoApprove: true,
+			});
+			try {
+				if (cold) {
+					const { createPersistedSubagentReviverFactory } = await import(`${AGENT_ROOT}/src/task/persisted-revive.ts`);
+					lifecycle().setPersistedSubagentReviverFactory(createPersistedSubagentReviverFactory({
+						session: parent, authStorage: env.authStorage, modelRegistry: env.modelRegistry,
+						settings: env.settings, enableLsp: false,
+					}), () => 0);
+				}
+				const tool = parent.agent.state.tools.find((candidate: { name: string }) => candidate.name === "task");
+				expect(tool, "the SDK parent must expose its real public task tool");
+				const call = await tool.execute("public-per-call-revival", {
+					agent: "task", name: "PerCallProbe", model: `mock/${env.model.id}:low`,
+					task: "Report readiness by calling yield.", solutionSpace: "One scripted offline response.",
+				});
+				const result = call.details?.results?.[0];
+				expect(result?.exitCode === 0 && !result.error, `public per-call task must succeed: ${JSON.stringify(call)}`);
+				const id = result.id;
+				const before = liveSession(id);
+				const ref = registry().get(id)!;
+				const file = ref.sessionFile!;
+				const init = sessionInits(file).at(-1)!;
+				expect(init?.perCallModel === true, "the public task must persist its per-call model contract");
+				const preRequest = env.model.calls.at(-1)!;
+				const prePrefix = JSON.stringify({ system: preRequest.context.systemPrompt, tools: wireTools(preRequest) });
+				const preInits = sessionInits(file).length;
+				await park(id);
+				cfgIncludeModelInPrompt.override(env.settings, false);
+				cfgTaskEager.override(env.settings, "always");
+				if (cold) {
+					await lifecycle().release(id);
+					expect(!registry().get(id), "cold fixture must drop the warm adoption and registry ref");
+					registry().register({ id, displayName: ref.displayName, parentId: ref.parentId, kind: "sub", status: "parked", session: null, sessionFile: file });
+					expect(!lifecycle().has(id), "cold revival must have no in-memory warm reviver");
+				}
+				const revived = (await lifecycle().ensureLive(id)) as AgentSessionLike;
+				expect(revived !== before, "the public per-call revival must rebuild a fresh session");
+				const request = await firstPostRevivalRequest(env, revived);
+				const postPrefix = JSON.stringify({ system: request.context.systemPrompt, tools: wireTools(request) });
+				expect(postPrefix === prePrefix, `${cold ? "cold" : "warm"} per-call first request must preserve persisted prompt and tool prefix: ${drift(prePrefix, postPrefix)}`);
+				expect(`${revived.model?.provider}/${revived.model?.id}` === init.perCallModelIdentity, "the revived per-call request must select its exact saved model identity");
+				expect(init.perCallModelIdentity === `mock/${env.model.id}`, "per-call identity must preserve the literal thinking-like model-id suffix");
+				expect(init.perCallThinkingLevel === "low", "per-call thinking level must be persisted separately from the model id");
+				expect(request.options?.reasoning === "low", "the revived per-call request must retain its saved low thinking level");
+				expect(registry().get(id)?.kind === "sub", "revival must keep subagent-derived prompt policy rather than root eager-task policy");
+				expect(sessionInits(file).length === preInits, "public per-call revival must not rewrite the persisted session_init");
+				const observation = { path: cold ? "task -> disk-only parked ref -> ensureLive" : "task -> park -> ensureLive", modelIdentity: init.perCallModelIdentity, selectedModelIdentity: `${revived.model?.provider}/${revived.model?.id}`, thinkingLevel: request.options?.reasoning, prefixBytes: Buffer.byteLength(prePrefix), prefixSha256: new Bun.CryptoHasher("sha256").update(prePrefix).digest("hex"), systemInits: preInits };
+				record(observation);
+				console.log(`  per-call revival evidence: ${JSON.stringify(observation)}`);
+			} finally {
+				await parent.dispose();
+			}
+		});
+	}
 }
 
 // ------------------------------------------------------------------ report --

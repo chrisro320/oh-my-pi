@@ -24,9 +24,9 @@ import { resolvePlan } from "./version-registry.ts";
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 // Version-scoped: the freeze/notice split this gate defends exists from 18.3.4 on, and the
-// fixture tag syntax is 18.4.1's. Both are older than every registered release, so the full
-// fixture runs on the supported range; an unregistered tree fails closed instead of skipping.
-resolvePlan({ gate: "verify-model-mention-surface-resume", roots: [AGENT_ROOT] });
+// fixture tag syntax is 18.4.1's. Both are older than every registered release; the
+// per-call persistence leg below has its own boundary. Unregistered trees fail closed.
+const plan = resolvePlan({ gate: "verify-model-mention-surface-resume", roots: [AGENT_ROOT] });
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_MODEL_MENTION_LAB ?? mkdtempSync(join(tmpdir(), "model-mention-surface-"));
 const PROBE = join(AGENT_ROOT, ".verify-model-mention-surface-resume.probe.ts");
@@ -37,6 +37,7 @@ type Capture = {
 	sessionFile: string;
 	turns: { label: string; system: string; tools: string; messages: string[]; codexHead: string }[];
 	sessionAgents: { name: string; model?: string[]; thinkingLevel?: string }[];
+	perCallInputs?: { roles: Record<string, string | string[]>; allowlist: string[]; model: string };
 	fetchAttempts: number;
 };
 
@@ -59,8 +60,10 @@ const catalogRoot = join(siblingRoot, "pi-catalog");
 const [mode, resumeFile] = process.argv.slice(2);
 const evalCase = mode === "eval-live" || mode === "eval-resume";
 const effortCase = mode === "effort-live" || mode === "effort-resume";
-const resumeMode = mode === "resume" || mode === "control-resume" || mode === "eval-resume" || mode === "effort-resume";
-assert.ok(resumeMode || mode === "tag-live" || mode === "control-live" || mode === "eval-live" || mode === "effort-live", "unknown mode " + mode);
+const perCallCase = mode.startsWith("per-call-");
+const changedPerCallInputs = mode === "per-call-resume" || mode === "per-call-changed-live";
+const resumeMode = mode === "resume" || mode === "control-resume" || mode === "eval-resume" || mode === "effort-resume" || mode === "per-call-resume";
+assert.ok(resumeMode || mode === "tag-live" || mode === "control-live" || mode === "eval-live" || mode === "effort-live" || mode === "per-call-live" || mode === "per-call-changed-live", "unknown mode " + mode);
 
 let fetchAttempts = 0;
 globalThis.fetch = () => {
@@ -79,8 +82,10 @@ assert.equal(typeof codex.buildTransformedCodexRequestBody, "function", "missing
 const codexModel = catalog.getBundledModel("openai-codex", "gpt-6-astra") ?? catalog.getBundledModels("openai-codex")[0];
 assert.ok(codexModel, "a bundled openai-codex model is required for the cache-key capture");
 
-const cwd = join(lab, "work");
-const agentDir = join(lab, "agent");
+const probeLab = perCallCase ? join(lab, "per-call") : lab;
+const cwd = join(probeLab, "work");
+const agentDir = join(probeLab, "agent");
+const perCallAllow = [changedPerCallInputs ? "mention-fixture/tag-model" : "mention-fixture/vision-model"];
 mkdirSync(cwd, { recursive: true });
 mkdirSync(agentDir, { recursive: true });
 const settings = await Settings.loadIsolated({
@@ -93,9 +98,19 @@ const settings = await Settings.loadIsolated({
 		"secrets.enabled": false,
 		"compaction.enabled": false,
 		"compaction.keepRecentTokens": 2000,
+		...(perCallCase ? {
+			"task.perCallModel": "on",
+			"task.perCallModelAllow": perCallAllow,
+			// Change the selected parent too, without intentionally changing the system model line.
+			"includeModelInPrompt": false,
+		} : {}),
 	},
 });
 settings.setModelRole("default", "mention-fixture/vision-model");
+if (perCallCase) {
+	settings.setModelRole("smol", changedPerCallInputs ? undefined : "mention-fixture/vision-model");
+	settings.setModelRole("slow", changedPerCallInputs ? "mention-fixture/tag-model" : undefined);
+}
 const authStorage = await discoverAuthStorage(agentDir);
 authStorage.keys.setRuntime("mention-fixture", "offline-fixture");
 const registry = new ModelRegistry(authStorage, join(agentDir, "models.yml"), { settings });
@@ -113,6 +128,8 @@ const provider = {
 		{ id: "tag-model", name: "T", reasoning: effortCase, input: ["text"], contextWindow: 200000, maxTokens: 4096,
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			...(effortCase ? { thinking: { mode: "effort", efforts: ["low", "medium", "high"] } } : {}) },
+		{ id: "changed-parent-model", name: "R", reasoning: false, input: ["text"], contextWindow: 200000, maxTokens: 4096,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
 	],
 	streamSimple(model, context, options) {
 		const call = {
@@ -151,7 +168,7 @@ if (resumeMode && evalCase) {
 		return realNames.call(this).filter(name => name !== "write");
 	};
 }
-const manager = resumeFile ? await SessionManager.open(resumeFile) : SessionManager.create(cwd, join(lab, "sessions"));
+const manager = resumeFile ? await SessionManager.open(resumeFile) : SessionManager.create(cwd, join(probeLab, "sessions"));
 const { session } = await createAgentSession({
 	cwd,
 	agentDir,
@@ -159,6 +176,7 @@ const { session } = await createAgentSession({
 	modelRegistry: registry,
 	settings,
 	sessionManager: manager,
+	...(perCallCase ? { modelPattern: changedPerCallInputs ? "mention-fixture/changed-parent-model" : "mention-fixture/vision-model" } : {}),
 	skills: [],
 	rules: [],
 	contextFiles: [],
@@ -169,7 +187,8 @@ const { session } = await createAgentSession({
 	preloadedCustomToolPaths: [],
 	enableLsp: false,
 	skipPythonPreflight: true,
-	toolNames: evalCase ? ["read", "edit", "task", "eval", "write"] : ["read", "edit", "task"],
+	// Without read, eval inlines its agents docs, including the per-call advertisement.
+	toolNames: perCallCase ? ["edit", "task", "eval", "write"] : evalCase ? ["read", "edit", "task", "eval", "write"] : ["read", "edit", "task"],
 	extensions: [extension],
 });
 
@@ -192,7 +211,7 @@ if (resumeMode) {
 		: effortCase ? "Second turn. Tag ^mention-fixture/tag-model:high now. " + filler(60)
 		: "Second turn. No tag here. " + filler(60));
 	await turn("t3", "Third turn. " + filler(60));
-	if (mode === "tag-live" || effortCase || evalCase) {
+	if (mode === "tag-live" || effortCase || evalCase || perCallCase) {
 		// The base-prompt rebuild every natural trigger funnels through (model switch, tool or
 		// skill reload, workspace/session change, memory promotion).
 		await session.refreshBaseSystemPrompt();
@@ -216,6 +235,11 @@ const result = {
 	// Dispatch reads the live registry; the advertised list only renders the description.
 	sessionAgents: session.getSessionAgents().map(agent => ({ name: agent.name, model: agent.model, thinkingLevel: agent.thinkingLevel })),
 	fetchAttempts,
+	perCallInputs: perCallCase ? {
+		roles: settings.getModelRoles(),
+		allowlist: perCallAllow,
+		model: session.model.provider + "/" + session.model.id,
+	} : undefined,
 };
 await session.dispose();
 assert.equal(fetchAttempts, 0, "no network fetch should be attempted");
@@ -355,6 +379,43 @@ try {
 	assert.ok(effortLast, "effort live process must capture the post-rebuild request");
 	for (const request of effortResumed.turns) {
 		assert.equal(request.tools, effortLast.tools, "effort: the advertised description must match the live one byte for byte");
+	}
+
+	// The 18.18.0 plan is known to lack per-call advertisement persistence; fixed in 18.18.6.
+	if (plan.since("18.18.6")) {
+		const perCallLive = runProbe("per-call-live");
+		const perCallLast = perCallLive.turns.at(-1);
+		assert.ok(perCallLast, "per-call: the live process must publish a rebuilt surface");
+		const perCallChanged = runProbe("per-call-changed-live");
+		const changedLast = perCallChanged.turns.at(-1);
+		assert.ok(changedLast, "per-call: a fresh session must capture the changed grant/model inputs");
+		const perCallResumed = runProbe("per-call-resume", perCallLive.sessionFile);
+		assert.notDeepEqual(perCallChanged.perCallInputs?.roles, perCallLive.perCallInputs?.roles, "per-call fixture must change the configured granting roles");
+		assert.notDeepEqual(perCallChanged.perCallInputs?.allowlist, perCallLive.perCallInputs?.allowlist, "per-call fixture must change the narrowing allowlist");
+		assert.notEqual(perCallChanged.perCallInputs?.model, perCallLive.perCallInputs?.model, "per-call fixture must change the selected parent model");
+		assert.deepEqual(perCallResumed.perCallInputs, perCallChanged.perCallInputs, "per-call resume must actually use the changed grant/model inputs");
+		assert.equal(perCallResumed.turns.length, 2, "per-call resume must make two provider requests");
+		for (const name of ["task", "eval"]) {
+			const before = toolDescription(perCallLast.tools, name);
+			const changed = toolDescription(changedLast.tools, name);
+			assert.ok(before && changed, "per-call fixture must expose " + name);
+			assert.ok(before.includes("mention-fixture/vision-model") && before.includes("(smol)"), name + ": live advertisement must list the old granted selector and role");
+			assert.ok(before.includes("Allowlist: `mention-fixture/vision-model`") && before.includes("your own current model;"), name + ": live allowlist must admit the parent");
+			assert.ok(changed.includes("mention-fixture/tag-model") && changed.includes("(slow)"), name + ": fresh advertisement must list the changed selector and role");
+			assert.ok(changed.includes("Allowlist: `mention-fixture/tag-model`") && !changed.includes("your own current model;"), name + ": changed allowlist must withhold the changed parent");
+			assert.notEqual(changed, before, name + ": fixture must prove live derivation would change the description bytes");
+			for (const request of perCallResumed.turns) {
+				assert.equal(toolDescription(request.tools, name), before, "per-call/" + request.label + ": " + name + " description must preserve the published grant/model advertisement byte for byte");
+			}
+			console.log("per-call " + name + ": " + Buffer.byteLength(before) + " description bytes preserved across changed grants/model");
+		}
+		for (const request of perCallResumed.turns) {
+			assert.equal(request.system, perCallLast.system, "per-call: the cached system prefix must not change");
+			assert.equal(request.tools, perCallLast.tools, "per-call: the complete provider-facing tool prefix must not change");
+			assert.equal(request.codexHead, perCallLast.codexHead, "per-call: the Codex cache-key body head must not change");
+			assert.ok(!request.messages.some(message => message.includes("advertised_session_agents")), "per-call: the journaled advertisement must stay off the provider wire");
+		}
+		console.log("per-call resume inputs: " + JSON.stringify({ before: perCallLive.perCallInputs, after: perCallResumed.perCallInputs }));
 	}
 	console.log(
 		`PASS model-mention surface resume: ${resumed.turns.length} resumed requests carry the advertised surface (${liveLast.tools.length} tool bytes, codex head ${liveLast.codexHead.length} bytes), control unchanged`,
