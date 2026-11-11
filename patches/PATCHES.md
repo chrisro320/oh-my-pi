@@ -233,7 +233,7 @@ canonical 15（缺一即停，多出的啟用 `.ts` 也會一起 stage 並載入
 ### 8.3 非家族工具
 
 - `patches/native/`：native overlay 以版本分目錄。18.16.0（`native/18.16.0/overlay.json`，經 `build-natives.sh <work> <out> <overlay>` 建置，`python3 patches/verify-native-overlay.py --nm … --overlay …` 驗證）；18.18.0 的配方是 `native/18.18.0/overlay.json`（單一 Rust 補丁 `0001-ax-atspi-timeout-chrome-title.patch`：AT-SPI 連線上限 2 秒＋Chrome profile-decorated AX 標題；Escape MappingNotify 半邊已由上游 `bc706beb10` 接管）。18.12.6 的配方只作歷史保存（已移至 `patches/.retired/11-07-pre-18.16-plans/native/18.12.6/`），overlay 參數必填、沒有預設配方，不得覆寫。
-- Release 工具：`patches/publish-release.py`（`prepare`／`publish`／`rollback`）、`patches/release-launcher.py`、`patches/repair-agent-db.ts`、`patches/verify-release-family-plan.py`、`patches/verify-release-publication.py`。安裝／回退程序見 `DEPLOYMENT-RUNBOOK.md`；`rollback --release <physical-release>` 只在 `production_admission_started` 之前允許。
+- Release 工具：`patches/publish-release.py`（`prepare`／`publish`／`rollback`）、`patches/release-launcher.py`、`patches/repair-agent-db.ts`、`patches/verify-release-family-plan.py`、`patches/verify-release-publication.py`、`patches/smoke/run-sandbox-smoke.py`（安裝前私有 smoke）。安裝／回退程序見 `DEPLOYMENT-RUNBOOK.md`；`rollback --release <physical-release>` 只在 `production_admission_started` 之前允許。
 - Gate 與 rollup：`patches/verify-patch-family-rollups.sh`（`apply.sh --verify-rollups`）。
 - 手動 E2E：`patches/check-codex-compaction-cache.sh <session.jsonl>` 與 `patches/E2E-codex-compaction-cache-runbook.md`；`patches/verify-db-safety.sh` 只對 sandbox 做 `PRAGMA integrity_check`。
 
@@ -243,7 +243,7 @@ canonical 15（缺一即停，多出的啟用 `.ts` 也會一起 stage 並載入
 - **行為分支**：寫成 `since("<首個有該行為的版本>")`，邊界取第一個真有該行為的版本（可以未登記），不要一律取最新。`<=` 最舊版的邊界永遠為真（刪掉該 arm）、`>` 最新版的永遠為假（刪掉或修正）。gate 不得整段包在版本條件裡。
 - **上游原始碼一律英文**：不得在上游檔案寫中文註記；背景、事故與決策只進本文件、封存檔或 `DECISIONS.md`。
 - **編號**：只用一次，永不重用。空置號 0040（`trellis_command` 方案作廢）、0061、0064（改號為 0063 前的空號）保持空置；現行 `verify-patch-family-rollups.sh` 已不再斷言 abandoned 號，這條靠規則與 plan 檔名維持。
-- **家族維護**：同族維修是「封存上一修訂版、取代淨 diff」，不是疊新層；跟隨 `.trellis/spec/backend/patch-rollup-contracts.md`，歷史回滾位元組不得改動。
+- **家族維護**：同族維修是「封存上一修訂版、取代淨 diff」，不是疊新層；歷史回滾位元組不得改動。
 - **gate 選取**：優先 capability 驅動（`_omp_gate <id> <gate>`），新增版本時除了真正改變的 arm 不必改 `apply.sh`。
 - **驗證**：每個 gate 的負對照要能轉紅（突變必須被抓）；改 gate 後 `--print-gates`／`--print-capabilities` 必須與基準逐位元組相同。離線、私有 HOME、不碰 live install／DB／憑證。
 - **OMP2 遷移**：OMP2 是重寫，family 與 TypeScript companion 都不能直接搬；評估程序在暫停中的任務 `.tasks/11-08-omp2-migration-review/`（OMP2 發布時恢復）。

@@ -732,7 +732,7 @@ Historical cutover below; the later "45% notebook midpoint checkpoint" decision 
 
 ## omp-move 停用 Trellis，改用 Task（2026-11-07）
 
-- 決定：僅在 `omp-move` 停用 Trellis 的自動載入入口，往後使用 `tasks` 管理新任務。既有 `.trellis/tasks/`、`.trellis/workspace/` 與 `.trellis/spec/` 保留原處供查閱；原整合檔保存在 `.trellis/legacy-omp/`。
+- 決定：在 `omp-move` 永久停用 Trellis（不再恢復）的自動載入入口，往後使用 `tasks` 管理新任務。既有 `.trellis/tasks/`、`.trellis/workspace/` 與 `.trellis/spec/` 保留原處供查閱；原整合檔保存在 `.trellis/legacy-omp/`。
 - 否決轉換或自動恢復舊任務：使用者選擇保留歷史紀錄，不改寫原有任務狀態。也不更動其他專案或全域設定，以免擴大切換範圍。
 - 封存版的歷史驗證器改為讀取 `.trellis/legacy-omp/`，仍可獨立驗證舊行為，但不重新啟用 Trellis。新會話與重新開啟的會話採用新設定；已在執行的會話不視為已即時切換。
 
@@ -781,3 +781,8 @@ Historical cutover below; the later "45% notebook midpoint checkpoint" decision 
   - 補：已刪 `~/.omp/agent/APPEND_SYSTEM.md` 的 sudo 密碼那一行（原第 53 行），以及 8 月草稿 `~/.omp/agent/agents.new.md` 同樣一行；過程不顯示密碼。omp 只在啟動時讀 APPEND_SYSTEM（`main.ts:1434-1443`），所以修改前已開著的 7 個 omp 程序仍帶著舊提示，每次請求都還會送出，要重開才會停。
 - 壓縮前存筆記、分支子代理、平行合併鎖暫緩（使用者，2026-11-08）：四項需求（自動壓縮前一定存筆記、子代理可開筆記模式、子代理以主線壓縮後狀態為起點、先自行移植合併鎖）已查證可行，但牽涉狀態多、改動不易，且 OMP2 即將推出、session 架構差異大，現在依 18.x 做的設計可能整個重來，所以只留任務不實作。否決：現在就做第一階段（第 1、4 項）——出新版本的成本要在 OMP2 前回收不了。新版若再做第 1 項，不得重蹈 2026-10-23 拆掉的擋門（卡住壓縮）；85% 只是觸發點，須按實際剩餘空間決定「延一步存」或「直接壓」。查證報告、Q1–Q7 與建議答案：`.tasks/11-08-notes-precompact-branch-subagents/`（已暫停，恢復條件：OMP2 發布並確認其架構後，或使用者要求）。
 - OMP2 遷移原則（使用者，2026-11-08）：OMP2 是重寫，我們的補丁和擴充不能直接搬，但概念可能仍有用；使用者預估多 provider 的 harness 本質上還會有不少怪異的 cache 與憑證問題。所以 OMP2 出來時，要讀它的原始碼（不只看發布說明或設計文），把 `patches/PATCHES.md` §2、§8 的每項能力連同封存檔裡的故障簽名逐一對照，判定為：OMP2 已處理、概念仍適用需重新設計、或可以放掉；cache／前綴穩定與憑證（OAuth 更新、帳號輪替、被拒請求重送）優先。現有走公開入口的 gate 情境當作行為規格。承載位置：暫停中的任務 `.tasks/11-08-omp2-migration-review/`（恢復條件 OMP2 發布），`patches/PATCHES.md` §9 只留指向。否決 `AGENTS.md`（每次對話都佔系統提示，卻只在 OMP2 發布時才用得到）。這類「等外部事件再處理」的事，一律用暫停任務加恢復條件承載。
+
+## `/init` 指令覆蓋
+以 `~/.omp/agent/commands/init.md` 同名覆蓋內建 `/init`（使用者層級優先於內建）；產出規則以該檔為準。
+否決：補丁改內建 prompt（兩版補丁、gate 與重新發布只為改文字）；只放本專案 `.omp/commands/`（其他專案用不到）。
+理由：不動原始碼、升級不失效；代價是上游對內建 `/init` 的改進不會自動帶入。
