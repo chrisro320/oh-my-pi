@@ -18,7 +18,7 @@
 - 症狀：11-07-omp-18180-upgrade-plan 產出 prd.md／design.md／implement.md，使用者指出「應已停用 Trellis」。
 - 根因：拿 18.16.0 升級的舊 Trellis 任務（.trellis/tasks/archive/…/11-03-omp-18160-upgrade-plan）當範本，連檔案結構一起照抄；沒有對照 tasks skill 的 TASK.md 格式。
 - 正確做法：舊 Trellis 任務只能當內容參考。目標、驗收、做法、證據寫在 TASK.md；計畫交付物與大型輸出放在 research/，由 TASK.md 連結。plan.md 保留給 html-plan 面板使用。
-- 出處：.tasks/archive/2026-11/11-07-omp-18180-upgrade-plan；DECISIONS.md「OMP 18.18.0 升級計畫（2026-11-07）」最後一條。
+- 出處：.tasks/archive/2026-11/11-07-omp-18180-upgrade-plan（任務格式修正紀錄）。
 
 ### 獨立審查只排在總驗收，問題累積成多輪修補
 - 症狀：11-07-omp-18180-implement 到 M8 才第一次請 `reviewer` 看整批改動，4 輪＋定點複查共 33 項；後幾輪的問題多半是前一輪修補新增的程式（外掛暫存、稽核用途判別）帶出來的，總驗收拉長數小時。
@@ -31,3 +31,14 @@
 - 根因：一次派 25–32 個檔案；交件條件只寫「PASS」，沒要求列出實際跑到的段落；main 沒先抽查回報就送審，數字也沒先查收據。
 - 正確做法：切片控制在一個功能或少量檔案；交件時列出每個檢查實際跑到的段落，有任何一段沒跑到就不算完成；main 先用便宜的指令抽查回報（執行紀錄、數量）再送審；講時間、費用等數字前先查收據，查不到就標明是推論。
 - 出處：.tasks/archive/2026-11/11-07-omp-version-agnostic-gates（紀錄、`research/s2-batch2-fix-extensions.json`、`s3-full-batch-18.18.0.json`）；agent://S2B2Review、agent://S5Review。
+
+### 退役能力時把穩定版仍在用的 gate 斷言一起刪掉
+- 症狀：11-09-omp-18186-upgrade 退役 0004／0036／0052 時，直接改掉 `verify-main-cache-hit.ts`、`verify-provider-image-budget.ts` 的斷言；0050 新預覽檢查也沒分版本。審查才發現 18.18.0（穩定版，仍帶著這些能力）一跑就紅，或覆蓋被悄悄拿掉，多花一輪修正與複查。
+- 根因：退役只對新版計畫成立，但 gate 檔是兩版共用；改斷言時只在新版 runtime 上跑。
+- 正確做法：退役或新增行為的斷言一律依「該計畫是否帶此能力」選取（上游版本邊界才用 `since()`），改完同一個 gate 在兩個支援版本都跑，並各做一個突變對照。
+- 出處：.tasks/stage/11-09-omp-18186-upgrade（證據「審查第 1 輪」「檢查缺口修正」行、`research/m8-gate-0083.md`）。
+
+### 變更報告把既有未提交工作算進本輪
+- 根因：任務的 `base_commit..WT` 包含開始前既有的 dirty tree；未先按本輪實際修改路徑收斂，218 檔的報告把其他任務帶進來，造成不必要的重製。
+- 正確做法：產生報告前列明本輪修改路徑，採集後先篩選再 render；同檔含先前變動時明示比較限制，不把整檔差異都算成本輪產出，也不假造前態。
+- 出處：`~/.omp/agent/skills/oil-diff/scripts/collect_diff.py`（`--range` 為整個 tree、無 path selector）；`~/.omp/agent/skills/tasks/scripts/tasks.py`（`report` 的比較範圍）。
